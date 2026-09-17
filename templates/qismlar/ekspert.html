@@ -1,0 +1,23 @@
+{# Bitta ekspert kartasi. `e` — config.mahalliy() dan o'tgan lug'at. #}
+<article class="ekspert">
+  <div class="ekspert__avatar">
+    <span class="ekspert__harf" aria-hidden="true">{{ e.harf }}</span>
+    {% if e.rasm %}
+    <img src="{{ url_for('static', filename='img/ekspertlar/' ~ e.rasm) }}"
+         alt="{{ e.ism }}" loading="lazy" onerror="this.remove()">
+    {% endif %}
+  </div>
+
+  <h3 class="ekspert__ism">{{ e.ism }}</h3>
+  <p class="ekspert__unvon">{{ e.unvon }}</p>
+  <p class="ekspert__tashkilot">{{ e.tashkilot }}</p>
+
+  <div class="ekspert__past">
+    {% if e.mamlakat %}<span class="belgi belgi--yumshoq">{{ e.mamlakat }}</span>{% endif %}
+    {% if e.havola %}
+    <a href="{{ e.havola }}" target="_blank" rel="noopener" class="ekspert__havola">
+      {{ t.profil }} ↗
+    </a>
+    {% endif %}
+  </div>
+</article>

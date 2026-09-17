@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="{{ tillar[til].html }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block sarlavha %}{{ t.nav_bosh }}{% endblock %} — {{ konf.qisqa_nom }}</title>
+  <meta name="description" content="{{ konf.tur }} — {{ konf.nom }}. {{ konf.sana }}, {{ konf.joy }}.">
+  {% for kod, til_url in til_havola.items() %}
+  <link rel="alternate" hreflang="{{ tillar[kod].html }}" href="{{ til_url }}">
+  {% endfor %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/nishon.svg') }}">
+</head>
+<body class="{{ 'bosh-sahifa' if faol == 'bosh' }}" data-yuborilmoqda="{{ t.yuborilmoqda }}">
+
+<a class="otkazish" href="#kontent">{{ t.nav_bosh }}</a>
+
+<header class="header" id="header">
+  <div class="konteyner header__ich">
+    <a class="logo" href="{{ url_for('bosh_sahifa') }}">
+      {% include "qismlar/belgi.svg" %}
+      <span class="logo__matn">
+        <strong>{{ konf.qisqa_nom }}</strong>
+        <small>{{ konf.sana_qisqa }} · {{ konf.joy }}</small>
+      </span>
+    </a>
+
+    <button class="burger" id="burger" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav" id="nav">
+      <a href="{{ url_for('bosh_sahifa') }}"  class="{{ 'faol' if faol == 'bosh' }}">{{ t.nav_bosh }}</a>
+      <a href="{{ url_for('haqida') }}"       class="{{ 'faol' if faol == 'haqida' }}">{{ t.nav_haqida }}</a>
+      <a href="{{ url_for('yonalishlar') }}"  class="{{ 'faol' if faol == 'yonalishlar' }}">{{ t.nav_yonalishlar }}</a>
+      <a href="{{ url_for('kengash') }}"      class="{{ 'faol' if faol == 'kengash' }}">{{ t.nav_kengash }}</a>
+      <a href="{{ url_for('talablar') }}"     class="{{ 'faol' if faol == 'talablar' }}">{{ t.nav_talablar }}</a>
+      <a href="{{ url_for('aloqa') }}"        class="{{ 'faol' if faol == 'aloqa' }}">{{ t.nav_aloqa }}</a>
+
+      <div class="tilchi">
+        {% for kod, ma in tillar.items() %}
+        <a href="{{ til_havola[kod] }}" class="tilchi__til {{ 'faol' if kod == til }}"
+           hreflang="{{ ma.html }}" title="{{ ma.nom }}">{{ ma.qisqa }}</a>
+        {% endfor %}
+      </div>
+
+      <a href="{{ url_for('talablar') }}#yuborish" class="tugma tugma--kichik">{{ t.nav_yuborish }}</a>
+    </nav>
+  </div>
+</header>
+
+{% with xabarlar = get_flashed_messages(with_categories=true) %}
+  {% if xabarlar %}
+    <div class="konteyner flash-blok">
+      {% for turi, matn in xabarlar %}
+        <div class="flash flash--{{ turi }}">
+          <span class="flash__belgi">
+            {%- if turi == 'muvaffaqiyat' -%}✓{%- elif turi == 'xato' -%}✕{%- else -%}!{%- endif -%}
+          </span>
+          <span>{{ matn }}</span>
+          <button class="flash__yopish" aria-label="×">&times;</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<main id="kontent">
+  {% block kontent %}{% endblock %}
+</main>
+
+<footer class="futer">
+  <div class="konteyner futer__panjara">
+    <div>
+      <h4 class="futer__sarlavha">{{ konf.qisqa_nom }}</h4>
+      <p class="futer__matn">{{ konf.nom }}</p>
+      <p class="futer__matn futer__matn--xira">{{ konf.sana }} · {{ konf.joy }}</p>
+    </div>
+
+    <div>
+      <h4 class="futer__sarlavha">{{ t.futer_bolimlar }}</h4>
+      <ul class="futer__royxat">
+        <li><a href="{{ url_for('haqida') }}">{{ t.nav_haqida }}</a></li>
+        <li><a href="{{ url_for('yonalishlar') }}">{{ t.nav_yonalishlar }}</a></li>
+        <li><a href="{{ url_for('kengash') }}">{{ t.nav_kengash }}</a></li>
+        <li><a href="{{ url_for('talablar') }}">{{ t.nav_talablar }}</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 class="futer__sarlavha">{{ t.futer_aloqa }}</h4>
+      <ul class="futer__royxat">
+        <li><a href="mailto:{{ aloqa_malumot.email }}">{{ aloqa_malumot.email }}</a></li>
+        <li><a href="tel:{{ aloqa_malumot.telefon_raqam }}">{{ aloqa_malumot.telefon }}</a></li>
+        <li><a href="{{ aloqa_malumot.telegram }}" target="_blank" rel="noopener">Telegram</a></li>
+        <li><a href="{{ aloqa_malumot.whatsapp }}" target="_blank" rel="noopener">WhatsApp</a></li>
+      </ul>
+      <p class="futer__matn futer__matn--xira">{{ konf.manzil }}</p>
+    </div>
+  </div>
+
+  <div class="konteyner futer__past">
+    <span>&copy; 2026 {{ konf.joy }}. {{ t.futer_huquq }}</span>
+    <a href="{{ url_for('admin_panel') if admin_kirgan else url_for('admin_kirish') }}">{{ t.admin_panel }}</a>
+  </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block skript %}{% endblock %}
+</body>
+</html>

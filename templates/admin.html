@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.admin_panel }}{% endblock %}
+
+{% block kontent %}
+
+<section class="sahifa-bosh">
+  <div class="konteyner admin-bosh">
+    <div>
+      <span class="nishon nishon--kok">{{ t.admin_panel }}</span>
+      <h1>Aloqa xabarlari</h1>
+    </div>
+    <div class="admin-bosh__amallar">
+      <a href="{{ url_for('admin_eksport') }}" class="tugma tugma--chegara tugma--kichik">↓ CSV</a>
+      <a href="{{ url_for('admin_chiqish') }}" class="tugma tugma--kichik">Chiqish</a>
+    </div>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner">
+
+    <div class="raqamlar raqamlar--kichik">
+      <div class="raqam"><strong>{{ stat.jami }}</strong><span>jami xabar</span></div>
+      <div class="raqam"><strong>{{ stat.oqilmagan }}</strong><span>o'qilmagan</span></div>
+    </div>
+
+    <div class="filtr">
+      <a href="{{ url_for('admin_panel') }}"
+         class="filtr__tugma {{ '' if faqat_yangi else 'faol' }}">Hammasi</a>
+      <a href="{{ url_for('admin_panel', holat='yangi') }}"
+         class="filtr__tugma {{ 'faol' if faqat_yangi }}">O'qilmagan</a>
+    </div>
+
+    {% if xabarlar %}
+    <div class="jadval-orash">
+      <table class="jadval">
+        <thead>
+          <tr>
+            <th>#</th><th>Kim</th><th>Mavzu va xabar</th><th>Til</th><th>Sana</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for x in xabarlar %}
+          <tr class="{{ 'qator--yangi' if not x.oqilgan }}">
+            <td>{{ x.id }}</td>
+            <td>
+              <strong>{{ x.ism }}</strong><br>
+              <a href="mailto:{{ x.email }}" class="kichik">{{ x.email }}</a>
+            </td>
+            <td>
+              {% if x.mavzu %}<strong>{{ x.mavzu }}</strong><br>{% endif %}
+              <span class="xabar-matn">{{ x.xabar }}</span>
+            </td>
+            <td><span class="belgi belgi--yumshoq">{{ x.til | upper }}</span></td>
+            <td class="kichik">{{ x.yaratilgan }}</td>
+            <td class="amallar">
+              {% if not x.oqilgan %}
+              <form method="post" action="{{ url_for('admin_oqildi', xabar_id=x.id) }}">
+                <button class="mayda-tugma" type="submit">O'qildi</button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin_ochirish', xabar_id=x.id) }}"
+                    onsubmit="return confirm('Xabar o‘chirilsinmi?')">
+                <button class="mayda-tugma mayda-tugma--qizil" type="submit">O'chirish</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="bosh-holat">Hozircha xabar yo'q.</p>
+    {% endif %}
+
+  </div>
+</section>
+
+{% endblock %}

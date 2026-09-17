@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ kod }}{% endblock %}
+
+{% block kontent %}
+<section class="bolim markaz">
+  <div class="konteyner tor-konteyner">
+    <p class="xato-kod">{{ kod }}</p>
+    <h1>{{ xabar }}</h1>
+    <p style="margin-top: 1.75rem">
+      <a href="{{ url_for('bosh_sahifa') }}" class="tugma tugma--asosiy">{{ t.bosh_sahifaga }}</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.nav_yonalishlar }}{% endblock %}
+
+{% block kontent %}
+
+<section class="sahifa-bosh">
+  <div class="konteyner">
+    <span class="nishon nishon--kok">{{ t.yonalish_nishon }}</span>
+    <h1>{{ t.yonalish_sarlavha }}</h1>
+    <p class="sahifa-bosh__matn">{{ t.yonalish_sahifa_kirish }}</p>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner">
+    <ol class="yonalish-royxat">
+      {% for y in yonalishlar %}
+      <li class="yonalish">
+        <span class="yonalish__raqam">{{ y.raqam }}</span>
+        <div>
+          <h2 class="yonalish__nom">{{ y.nom }}</h2>
+          <p>{{ y.tavsif }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+
+<section class="chaqiruv">
+  <div class="konteyner chaqiruv__ich">
+    <h2>{{ t.chaqiruv_sarlavha }}</h2>
+    <p>{{ t.chaqiruv_matn.replace('{muddat}', konf.muddat) }}</p>
+    <a href="{{ url_for('talablar') }}#yuborish" class="tugma tugma--oq">{{ t.chaqiruv_tugma }}</a>
+  </div>
+</section>
+
+{% endblock %}

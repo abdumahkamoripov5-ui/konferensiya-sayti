@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.nav_haqida }}{% endblock %}
+
+{% block kontent %}
+
+<section class="sahifa-bosh">
+  <div class="konteyner">
+    <span class="nishon nishon--kok">{{ t.haqida_nishon }}</span>
+    <h1>{{ konf.nom }}</h1>
+    <p class="sahifa-bosh__matn">{{ konf.bagishlov }}</p>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner ikki-ustun">
+
+    <div>
+      <h2>{{ t.maqsad_sarlavha }}</h2>
+      <ul class="belgili-royxat">
+        {% for m in maqsadlar %}
+        <li>{{ m }}</li>
+        {% endfor %}
+      </ul>
+
+      <h2 style="margin-top: 2.75rem">{{ t.tashkilotchi_sarlavha }}</h2>
+      <ul class="tashkilot-royxat">
+        {% for o in tashkilotchilar %}
+        <li>{{ o }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <aside class="yonpanel">
+      <h3>{{ t.malumot_sarlavha }}</h3>
+      <dl class="malumot">
+        <dt>{{ t.qator_sana }}</dt><dd>{{ konf.sana }}</dd>
+        <dt>{{ t.qator_joy }}</dt><dd>{{ konf.joy }}<br><small>{{ konf.manzil }}</small></dd>
+        <dt>{{ t.qator_shakl }}</dt><dd>{{ konf.format }}</dd>
+        <dt>{{ t.qator_tillar }}</dt><dd>{{ konf.tillar_royxati }}</dd>
+        <dt>{{ t.qator_muddat }}</dt><dd><strong>{{ konf.muddat }}</strong></dd>
+        <dt>{{ t.qator_nashr }}</dt><dd>{{ t.nashr_matn }}</dd>
+      </dl>
+
+      {% if chorlov_fayl %}
+      <a class="tugma tugma--chegara tugma--keng" style="margin-top: 1.25rem"
+         href="{{ url_for('static', filename='chorlov/' ~ chorlov_fayl) }}" download>
+        ↓ {{ t.chorlov_yuklash }}
+      </a>
+      {% endif %}
+    </aside>
+
+  </div>
+</section>
+
+<section class="bolim bolim--kulrang">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <span class="nishon nishon--kok">{{ t.sanalar_nishon }}</span>
+      <h2>{{ t.sanalar_sarlavha }}</h2>
+    </div>
+
+    <div class="vaqt-chizigi">
+      {% for s in sanalar %}
+      <div class="vaqt-chizigi__element vaqt-chizigi__element--{{ s.holat }}">
+        <div class="vaqt-chizigi__nuqta"></div>
+        <div class="vaqt-chizigi__karta">
+          <strong>{{ s.sana }}</strong>
+          <p>{{ s.matn }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}

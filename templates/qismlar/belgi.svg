@@ -1,0 +1,15 @@
+<svg class="logo__belgi" viewBox="0 0 40 40" role="img" aria-label="{{ konf.belgi }}">
+  <defs>
+    <linearGradient id="belgiFon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16606f"/>
+      <stop offset="1" stop-color="#0b3038"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="40" height="40" rx="9" fill="url(#belgiFon)"/>
+  <g stroke="#d6a642" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M12 9v22"/>
+    <path d="M28 9v22"/>
+    <path d="M12 17l16-6"/>
+    <path d="M12 29l16-6"/>
+  </g>
+</svg>

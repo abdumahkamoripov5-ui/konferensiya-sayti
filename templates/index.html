@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.nav_bosh }}{% endblock %}
+
+{% block kontent %}
+
+<section class="qahramon">
+  <picture class="qahramon__surat">
+    <source media="(max-width: 700px)"
+            srcset="{{ url_for('static', filename='img/qahramon/bitigtosh-kichik.jpg') }}">
+    <img src="{{ url_for('static', filename='img/qahramon/bitigtosh.jpg') }}"
+         alt="{{ qahramon_surat.tavsif }}" fetchpriority="high">
+  </picture>
+  <div class="qahramon__parda" aria-hidden="true"></div>
+
+  <div class="konteyner qahramon__ich">
+    <span class="nishon nishon--yorug">{{ konf.tur }}</span>
+    <h1 class="qahramon__sarlavha">{{ konf.nom }}</h1>
+    <p class="qahramon__bagishlov">{{ konf.bagishlov }}</p>
+
+    <div class="hisoblagich" id="hisoblagich" data-sana="{{ sana_iso }}"
+         data-tugadi="{{ t.yigin_boshlandi }}">
+      <div class="romb"><span class="romb__ich"><b id="kun">—</b><small>{{ t.hisob_kun }}</small></span></div>
+      <div class="romb"><span class="romb__ich"><b id="soat">—</b><small>{{ t.hisob_soat }}</small></span></div>
+      <div class="romb"><span class="romb__ich"><b id="daqiqa">—</b><small>{{ t.hisob_daqiqa }}</small></span></div>
+      <div class="romb"><span class="romb__ich"><b id="soniya">—</b><small>{{ t.hisob_soniya }}</small></span></div>
+    </div>
+
+    <p class="qahramon__lavha">
+      <span>{{ konf.sana }}</span><i aria-hidden="true"></i><span>{{ konf.joy }}</span>
+    </p>
+
+    <div class="qahramon__tugmalar">
+      <a href="{{ url_for('talablar') }}#yuborish" class="tugma tugma--oq">{{ t.nav_yuborish }}</a>
+      <a href="{{ url_for('haqida') }}" class="tugma tugma--shaffof">{{ t.batafsil }}</a>
+    </div>
+  </div>
+
+  <a class="qahramon__pastga" href="#xususiyatlar">
+    <span>{{ t.kashf }}</span>
+    <svg width="14" height="20" viewBox="0 0 14 20" fill="none" aria-hidden="true">
+      <path d="M7 1v16m0 0 5-5m-5 5-5-5" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+</section>
+
+<section class="bolim" id="xususiyatlar">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <span class="nishon nishon--kok">{{ t.xus_nishon }}</span>
+      <h2>{{ t.xus_sarlavha }}</h2>
+    </div>
+
+    <div class="panjara panjara--4">
+      {% for x in [1, 2, 3, 4] %}
+      <article class="xus">
+        <span class="xus__raqam" aria-hidden="true">0{{ x }}</span>
+        <h3>{{ t['xus' ~ x ~ '_sarlavha'] }}</h3>
+        <p>{{ t['xus' ~ x ~ '_matn'] }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="bolim bolim--kulrang">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <span class="nishon nishon--kok">{{ t.chorlov }}</span>
+      <h2>{{ t.chorlov_murojaat }}</h2>
+      <p>{{ t.chorlov_matn }} {{ konf.shior }}.</p>
+    </div>
+
+    <h3 class="ost-sarlavha">{{ t.sanalar_nishon }}</h3>
+    <div class="vaqt-chizigi">
+      {% for s in sanalar %}
+      <div class="vaqt-chizigi__element vaqt-chizigi__element--{{ s.holat }}">
+        <div class="vaqt-chizigi__nuqta"></div>
+        <div class="vaqt-chizigi__karta">
+          <strong>{{ s.sana }}</strong>
+          <p>{{ s.matn }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <span class="nishon nishon--kok">{{ t.yonalish_nishon }}</span>
+      <h2>{{ t.yonalish_sarlavha }}</h2>
+      <p>{{ t.yonalish_kirish }}</p>
+    </div>
+
+    <div class="panjara panjara--3">
+      {% for y in yonalishlar %}
+      <article class="karta">
+        <span class="karta__belgi">{{ y.raqam }}</span>
+        <h3>{{ y.nom }}</h3>
+        <p>{{ y.tavsif }}</p>
+      </article>
+      {% endfor %}
+    </div>
+
+    <div class="markaz" style="margin-top: 2.5rem">
+      <a href="{{ url_for('yonalishlar') }}" class="tugma tugma--chegara">{{ t.batafsil }}</a>
+    </div>
+  </div>
+</section>
+
+<section class="bolim bolim--kulrang">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <span class="nishon nishon--kok">{{ t.kengash_nishon }}</span>
+      <h2>{{ t.kengash_sarlavha }}</h2>
+      <p>{{ t.kengash_kirish }}</p>
+    </div>
+
+    <div class="panjara panjara--4">
+      {% for e in xalqaro %}
+        {% include "qismlar/ekspert.html" %}
+      {% endfor %}
+    </div>
+
+    <div class="markaz" style="margin-top: 2.5rem">
+      <a href="{{ url_for('kengash') }}" class="tugma tugma--chegara">{{ t.hammasi }}</a>
+    </div>
+  </div>
+</section>
+
+<section class="bolim bolim--tor">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <span class="nishon nishon--kok">{{ t.qollab_nishon }}</span>
+      <h2>{{ t.qollab_sarlavha }}</h2>
+    </div>
+    <ul class="muassasalar">
+      {% for m in tashkilotchilar %}
+      <li>{{ m }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="chaqiruv">
+  <div class="konteyner chaqiruv__ich">
+    <h2>{{ t.chaqiruv_sarlavha }}</h2>
+    <p>{{ t.chaqiruv_matn.replace('{muddat}', konf.muddat) }}</p>
+    <a href="{{ url_for('talablar') }}#yuborish" class="tugma tugma--oq">{{ t.chaqiruv_tugma }}</a>
+  </div>
+</section>
+
+<p class="manba manba--surat">
+  {{ t.rasm_manba }}:
+  <a href="{{ qahramon_surat.havola }}" target="_blank" rel="noopener">{{ qahramon_surat.tavsif }}</a>
+  — {{ qahramon_surat.muallif }}, {{ qahramon_surat.litsenziya }}
+</p>
+
+{% endblock %}

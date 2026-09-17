@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.nav_aloqa }}{% endblock %}
+
+{% block kontent %}
+
+<section class="sahifa-bosh">
+  <div class="konteyner">
+    <span class="nishon nishon--kok">{{ t.aloqa_nishon }}</span>
+    <h1>{{ t.aloqa_sarlavha }}</h1>
+    <p class="sahifa-bosh__matn">{{ t.aloqa_kirish }}</p>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner ikki-ustun">
+
+    <form class="forma" method="post" novalidate>
+      <div class="maydon-guruh">
+        <label for="ism">{{ t.forma_ism }}</label>
+        <input type="text" id="ism" name="ism" required value="{{ form.ism or '' }}">
+      </div>
+
+      <div class="maydon-guruh">
+        <label for="email">{{ t.forma_email }}</label>
+        <input type="email" id="email" name="email" required value="{{ form.email or '' }}">
+      </div>
+
+      <div class="maydon-guruh">
+        <label for="mavzu">{{ t.forma_mavzu }} <span class="kichik">({{ t.forma_ixtiyoriy }})</span></label>
+        <input type="text" id="mavzu" name="mavzu" value="{{ form.mavzu or '' }}">
+      </div>
+
+      <div class="maydon-guruh">
+        <label for="xabar">{{ t.forma_xabar }}</label>
+        <textarea id="xabar" name="xabar" rows="6" required>{{ form.xabar or '' }}</textarea>
+      </div>
+
+      <button type="submit" class="tugma tugma--asosiy">{{ t.forma_yuborish }}</button>
+    </form>
+
+    <aside class="yonpanel">
+      <h3>{{ t.qomita_manzili }}</h3>
+      <p class="yonpanel__manzil">
+        {{ konf.joy }}<br>
+        {{ konf.manzil }}
+      </p>
+
+      <dl class="malumot">
+        <dt>{{ t.forma_email }}</dt>
+        <dd><a href="mailto:{{ aloqa_malumot.email }}">{{ aloqa_malumot.email }}</a></dd>
+        <dt>Telegram · WhatsApp</dt>
+        <dd><a href="tel:{{ aloqa_malumot.telefon_raqam }}">{{ aloqa_malumot.telefon }}</a></dd>
+      </dl>
+
+      <div class="yonpanel__tugmalar">
+        <a class="tugma tugma--chegara" href="{{ aloqa_malumot.telegram }}"
+           target="_blank" rel="noopener">Telegram</a>
+        <a class="tugma tugma--chegara" href="{{ aloqa_malumot.whatsapp }}"
+           target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+    </aside>
+
+  </div>
+</section>
+
+{% endblock %}

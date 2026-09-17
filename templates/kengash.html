@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.nav_kengash }}{% endblock %}
+
+{% block kontent %}
+
+<section class="sahifa-bosh">
+  <div class="konteyner">
+    <span class="nishon nishon--kok">{{ t.kengash_nishon }}</span>
+    <h1>{{ t.kengash_sarlavha }}</h1>
+    <p class="sahifa-bosh__matn">{{ t.kengash_kirish }}</p>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner">
+    <div class="bolim__bosh bolim__bosh--chap">
+      <h2>{{ t.kengash_xalqaro }}</h2>
+    </div>
+    <div class="panjara panjara--4">
+      {% for e in xalqaro %}
+        {% include "qismlar/ekspert.html" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="bolim bolim--kulrang">
+  <div class="konteyner">
+    <div class="bolim__bosh bolim__bosh--chap">
+      <h2>{{ t.kengash_mahalliy }}</h2>
+    </div>
+    <div class="panjara panjara--4">
+      {% for e in mahalliy %}
+        {% include "qismlar/ekspert.html" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% if rasm_manbalari %}
+<section class="bolim bolim--tor">
+  <div class="konteyner">
+    <p class="manba">
+      <strong>{{ t.rasm_manba }}:</strong>
+      {% for m in rasm_manbalari %}
+      <a href="{{ m.havola }}" target="_blank" rel="noopener">{{ m.ism }}</a> —
+      {{ m.muallif }}, {{ m.litsenziya }}{{ "; " if not loop.last }}
+      {% endfor %}
+    </p>
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

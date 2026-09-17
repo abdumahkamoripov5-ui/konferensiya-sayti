@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.nav_talablar }}{% endblock %}
+
+{% block kontent %}
+
+<section class="sahifa-bosh">
+  <div class="konteyner">
+    <span class="nishon nishon--kok">{{ t.talab_nishon }}</span>
+    <h1>{{ t.talab_sarlavha }}</h1>
+    <p class="sahifa-bosh__matn">{{ t.talab_kirish }}</p>
+  </div>
+</section>
+
+<section class="bolim">
+  <div class="konteyner ikki-ustun">
+
+    <div>
+      <dl class="talab-royxat">
+        {% for nom, qiymat in talablar %}
+        <div class="talab">
+          <dt>{{ nom }}</dt>
+          <dd>{{ qiymat }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+
+      <div class="eslatma">
+        <h3>{{ t.eslatma_sarlavha }}</h3>
+        <ul>
+          {% for e in eslatmalar %}
+          <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <aside class="yonpanel yonpanel--urgu" id="yuborish">
+      <h3>{{ t.qayerga_sarlavha }}</h3>
+      <p>{{ t.qayerga_matn }}</p>
+
+      <a class="pochta" href="mailto:{{ aloqa_malumot.email }}?subject={{ konf.qisqa_nom | urlencode }}">
+        {{ aloqa_malumot.email }}
+      </a>
+
+      <a class="tugma tugma--asosiy tugma--keng" style="margin-top: 1rem"
+         href="mailto:{{ aloqa_malumot.email }}?subject={{ konf.qisqa_nom | urlencode }}">
+        {{ t.chaqiruv_tugma }}
+      </a>
+
+      <dl class="malumot" style="margin-top: 1.5rem">
+        <dt>{{ t.qator_muddat }}</dt><dd><strong>{{ konf.muddat }}</strong></dd>
+        <dt>{{ t.qator_tillar }}</dt><dd>{{ konf.tillar_royxati }}</dd>
+        <dt>{{ t.futer_aloqa }}</dt>
+        <dd>
+          <a href="tel:{{ aloqa_malumot.telefon_raqam }}">{{ aloqa_malumot.telefon }}</a><br>
+          <small>Telegram · WhatsApp</small>
+        </dd>
+      </dl>
+
+      {% if chorlov_fayl %}
+      <a class="tugma tugma--chegara tugma--keng" style="margin-top: 1.25rem"
+         href="{{ url_for('static', filename='chorlov/' ~ chorlov_fayl) }}" download>
+        ↓ {{ t.chorlov_yuklash }}
+      </a>
+      {% endif %}
+    </aside>
+
+  </div>
+</section>
+
+<section class="bolim bolim--kulrang">
+  <div class="konteyner">
+    <div class="bolim__bosh">
+      <h2>{{ t.yonalish_sarlavha }}</h2>
+      <p>{{ t.yonalish_kirish }}</p>
+    </div>
+    <div class="panjara panjara--3">
+      {% for y in yonalishlar %}
+      <article class="karta">
+        <span class="karta__belgi">{{ y.raqam }}</span>
+        <h3>{{ y.nom }}</h3>
+        <p>{{ y.tavsif }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}
