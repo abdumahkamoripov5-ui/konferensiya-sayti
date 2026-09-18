@@ -76,4 +76,46 @@
   </div>
 </section>
 
+<section class="bolim bolim--kulrang">
+  <div class="konteyner">
+    <h2>Yuborilgan maqolalar</h2>
+
+    {% if maqolalar %}
+    <div class="jadval-orash">
+      <table class="jadval">
+        <thead>
+          <tr>
+            <th>#</th><th>Kim</th><th>Yo'nalish</th><th>Fayl</th><th>Til</th><th>Sana</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in maqolalar %}
+          <tr>
+            <td>{{ m.id }}</td>
+            <td>
+              <strong>{{ m.ism }}</strong><br>
+              <a href="mailto:{{ m.email }}" class="kichik">{{ m.email }}</a>
+            </td>
+            <td>{{ m.yonalish or '—' }}</td>
+            <td><a href="{{ url_for('admin_maqola_yuklab_olish', maqola_id=m.id) }}">{{ m.original_nomi }}</a></td>
+            <td><span class="belgi belgi--yumshoq">{{ m.til | upper }}</span></td>
+            <td class="kichik">{{ m.yaratilgan }}</td>
+            <td class="amallar">
+              <form method="post" action="{{ url_for('admin_maqola_ochirish', maqola_id=m.id) }}"
+                    onsubmit="return confirm('Maqola o‘chirilsinmi?')">
+                <button class="mayda-tugma mayda-tugma--qizil" type="submit">O'chirish</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="bosh-holat">Hozircha maqola yo'q.</p>
+    {% endif %}
+
+  </div>
+</section>
+
 {% endblock %}

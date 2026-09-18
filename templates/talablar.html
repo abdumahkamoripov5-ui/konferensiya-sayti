@@ -35,16 +35,37 @@
     </div>
 
     <aside class="yonpanel yonpanel--urgu" id="yuborish">
-      <h3>{{ t.qayerga_sarlavha }}</h3>
-      <p>{{ t.qayerga_matn }}</p>
+      <h3>{{ t.maqola_forma_sarlavha }}</h3>
+      <form class="forma" method="post" action="{{ url_for('maqola_yuborish') }}" enctype="multipart/form-data">
+        <div class="maydon-guruh">
+          <label for="maqola-ism">{{ t.forma_ism }}</label>
+          <input type="text" id="maqola-ism" name="ism" required>
+        </div>
+        <div class="maydon-guruh">
+          <label for="maqola-email">{{ t.forma_email }}</label>
+          <input type="email" id="maqola-email" name="email" required>
+        </div>
+        <div class="maydon-guruh">
+          <label for="maqola-yonalish">{{ t.forma_yonalish }} <span class="kichik">({{ t.forma_ixtiyoriy }})</span></label>
+          <select id="maqola-yonalish" name="yonalish">
+            <option value=""></option>
+            {% for y in yonalishlar %}
+            <option value="{{ y.nom }}">{{ y.nom }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="maydon-guruh">
+          <label for="maqola-fayl">{{ t.forma_fayl }}</label>
+          <input type="file" id="maqola-fayl" name="fayl" accept=".pdf,.doc,.docx" required>
+        </div>
+        <button type="submit" class="tugma tugma--asosiy tugma--keng">{{ t.forma_maqola_yuborish }}</button>
+      </form>
 
+      <p class="kichik" style="margin-top: 1rem; text-align: center;">{{ t.yoki_ajratuvchi }}</p>
+
+      <p>{{ t.qayerga_matn }}</p>
       <a class="pochta" href="mailto:{{ aloqa_malumot.email }}?subject={{ konf.qisqa_nom | urlencode }}">
         {{ aloqa_malumot.email }}
-      </a>
-
-      <a class="tugma tugma--asosiy tugma--keng" style="margin-top: 1rem"
-         href="mailto:{{ aloqa_malumot.email }}?subject={{ konf.qisqa_nom | urlencode }}">
-        {{ t.chaqiruv_tugma }}
       </a>
 
       <dl class="malumot" style="margin-top: 1.5rem">

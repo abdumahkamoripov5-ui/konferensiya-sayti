@@ -15,6 +15,9 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "turkiy-yozma-meros-2026")
 
     DATABASE = os.path.join(BASE_DIR, "data", "konferensiya.db")
+    MAQOLA_PAPKA = os.path.join(BASE_DIR, "data", "maqolalar")
+    MAQOLA_KENGAYTMALAR = {"pdf", "doc", "docx"}
+    MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB
 
     ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
     ADMIN_PAROL = os.environ.get("ADMIN_PAROL", "admin123")
@@ -607,6 +610,13 @@ MATN = {
         "qayerga_sarlavha": "Maqola qayerga yuboriladi",
         "qayerga_matn": "Tayyor maqolani quyidagi elektron pochtaga yuboring:",
         "chorlov_yuklash": "Chorlov matnini yuklab olish",
+        "yoki_ajratuvchi": "yoki saytimiz orqali yuboring",
+        "maqola_forma_sarlavha": "Maqolani saytga yuklash",
+        "forma_yonalish": "Ilmiy yo'nalish",
+        "forma_fayl": "Maqola fayli (PDF, DOC, DOCX — 20 MB gacha)",
+        "forma_maqola_yuborish": "Faylni yuborish",
+        "xato_fayl": "Iltimos, ism, email va to'g'ri formatdagi faylni (PDF/DOC/DOCX, 20 MB gacha) tanlang.",
+        "muvaffaqiyat_maqola": "Maqolangiz qabul qilindi. Rahmat!",
         # aloqa
         "aloqa_nishon": "Aloqa",
         "aloqa_sarlavha": "Tashkiliy qo'mita bilan bog'lanish",
@@ -711,6 +721,13 @@ MATN = {
         "qayerga_sarlavha": "Where to send the paper",
         "qayerga_matn": "Send the completed paper to the following e-mail address:",
         "chorlov_yuklash": "Download the call for papers",
+        "yoki_ajratuvchi": "or submit it through our website",
+        "maqola_forma_sarlavha": "Upload your paper",
+        "forma_yonalish": "Research track",
+        "forma_fayl": "Paper file (PDF, DOC, DOCX — up to 20 MB)",
+        "forma_maqola_yuborish": "Upload file",
+        "xato_fayl": "Please provide your name, email and a valid file (PDF/DOC/DOCX, up to 20 MB).",
+        "muvaffaqiyat_maqola": "Your paper has been received. Thank you!",
         "aloqa_nishon": "Contact",
         "aloqa_sarlavha": "Contact the organizing committee",
         "aloqa_kirish": "If you have a question, fill in the form below or write to us "
@@ -811,6 +828,13 @@ MATN = {
         "qayerga_sarlavha": "Bildiri nereye gönderilir",
         "qayerga_matn": "Hazır bildiriyi aşağıdaki e-posta adresine gönderin:",
         "chorlov_yuklash": "Sempozyum çağrısını indir",
+        "yoki_ajratuvchi": "veya web sitemiz üzerinden gönderin",
+        "maqola_forma_sarlavha": "Bildirinizi yükleyin",
+        "forma_yonalish": "Bilimsel alan",
+        "forma_fayl": "Bildiri dosyası (PDF, DOC, DOCX — 20 MB'a kadar)",
+        "forma_maqola_yuborish": "Dosyayı gönder",
+        "xato_fayl": "Lütfen adınızı, e-postanızı ve geçerli bir dosya (PDF/DOC/DOCX, 20 MB'a kadar) seçin.",
+        "muvaffaqiyat_maqola": "Bildiriniz alındı. Teşekkür ederiz!",
         "aloqa_nishon": "İletişim",
         "aloqa_sarlavha": "Düzenleme kurulu ile iletişim",
         "aloqa_kirish": "Sorunuz varsa aşağıdaki formu doldurun veya doğrudan yazın — "

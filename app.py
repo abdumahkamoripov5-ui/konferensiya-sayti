@@ -9,10 +9,13 @@ import csv
 import io
 import os
 import re
+import uuid
 from functools import wraps
 
 from flask import (Flask, flash, g, redirect, render_template, request,
-                   Response, session, url_for)
+                   Response, send_from_directory, session, url_for)
+from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.utils import secure_filename
 
 import config
 import models
@@ -179,6 +182,49 @@ def aloqa():
     return render_template("aloqa.html", faol="aloqa", form={})
 
 
+def fayl_togrimi(fayl):
+    if not fayl or not fayl.filename:
+        return False
+    kengaytma = fayl.filename.rsplit(".", 1)[-1].lower() if "." in fayl.filename else ""
+    return kengaytma in config.Config.MAQOLA_KENGAYTMALAR
+
+
+@app.route("/maqola-yuborish", defaults={"til": config.ASOSIY_TIL}, methods=["GET", "POST"])
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/maqola-yuborish", methods=["GET", "POST"])
+def maqola_yuborish():
+    til = g.til
+    if request.method == "POST":
+        form = {
+            "ism": (request.form.get("ism") or "").strip(),
+            "email": (request.form.get("email") or "").strip(),
+            "yonalish": (request.form.get("yonalish") or "").strip(),
+        }
+        fayl = request.files.get("fayl")
+
+        if not form["ism"] or not email_togrimi(form["email"]) or not fayl_togrimi(fayl):
+            flash(config.MATN[til]["xato_fayl"], "xato")
+            return redirect(url_for("talablar", til=til) + "#yuborish")
+
+        os.makedirs(app.config["MAQOLA_PAPKA"], exist_ok=True)
+        kengaytma = fayl.filename.rsplit(".", 1)[-1].lower()
+        fayl_nomi = f"{uuid.uuid4().hex}.{kengaytma}"
+        fayl.save(os.path.join(app.config["MAQOLA_PAPKA"], fayl_nomi))
+
+        models.maqola_qoshish(form["ism"], form["email"], form["yonalish"],
+                              fayl_nomi, secure_filename(fayl.filename), til)
+        flash(config.MATN[til]["muvaffaqiyat_maqola"], "muvaffaqiyat")
+        return redirect(url_for("talablar", til=til) + "#yuborish")
+
+    return redirect(url_for("talablar", til=til) + "#yuborish")
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def fayl_katta(e):
+    til = g.get("til", config.ASOSIY_TIL)
+    flash(config.MATN[til]["xato_fayl"], "xato")
+    return redirect(url_for("talablar", til=til) + "#yuborish")
+
+
 # --- Admin panel -----------------------------------------------------------
 
 @app.route("/admin/kirish", methods=["GET", "POST"])
@@ -208,7 +254,33 @@ def admin_panel():
         xabarlar=models.xabarlar_royxati(faqat_yangi),
         stat=models.statistika(),
         faqat_yangi=faqat_yangi,
+        maqolalar=models.maqolalar_royxati(),
     )
+
+
+@app.route("/admin/maqola/<int:maqola_id>/yuklab-olish")
+@admin_kerak
+def admin_maqola_yuklab_olish(maqola_id):
+    maqola = models.maqola_topish(maqola_id)
+    if maqola is None:
+        return redirect(url_for("admin_panel"))
+    return send_from_directory(
+        app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
+        as_attachment=True, download_name=maqola["original_nomi"],
+    )
+
+
+@app.route("/admin/maqola/<int:maqola_id>/ochirish", methods=["POST"])
+@admin_kerak
+def admin_maqola_ochirish(maqola_id):
+    maqola = models.maqola_topish(maqola_id)
+    if maqola is not None:
+        fayl_yoli = os.path.join(app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"])
+        if os.path.exists(fayl_yoli):
+            os.remove(fayl_yoli)
+        models.maqola_ochirish(maqola_id)
+        flash("Maqola o'chirildi.", "muvaffaqiyat")
+    return redirect(url_for("admin_panel"))
 
 
 @app.route("/admin/oqildi/<int:xabar_id>", methods=["POST"])

@@ -24,6 +24,17 @@ CREATE TABLE IF NOT EXISTS xabarlar (
 );
 
 CREATE INDEX IF NOT EXISTS idx_xabar_oqilgan ON xabarlar(oqilgan);
+
+CREATE TABLE IF NOT EXISTS maqolalar (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ism           TEXT NOT NULL,
+    email         TEXT NOT NULL,
+    yonalish      TEXT,
+    fayl_nomi     TEXT NOT NULL,
+    original_nomi TEXT NOT NULL,
+    til           TEXT NOT NULL DEFAULT 'uz',
+    yaratilgan    TEXT NOT NULL
+);
 """
 
 
@@ -99,3 +110,32 @@ def statistika():
         "SELECT COUNT(*) AS n FROM xabarlar WHERE oqilgan = 0"
     ).fetchone()["n"]
     return {"jami": jami, "oqilmagan": oqilmagan}
+
+
+# --- Maqolalar ---------------------------------------------------------------
+
+def maqola_qoshish(ism, email, yonalish, fayl_nomi, original_nomi, til="uz"):
+    db = get_db()
+    db.execute(
+        """INSERT INTO maqolalar (ism, email, yonalish, fayl_nomi, original_nomi, til, yaratilgan)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (ism, email, yonalish, fayl_nomi, original_nomi, til,
+         datetime.now().strftime("%Y-%m-%d %H:%M")),
+    )
+    db.commit()
+
+
+def maqolalar_royxati():
+    db = get_db()
+    return db.execute("SELECT * FROM maqolalar ORDER BY id DESC").fetchall()
+
+
+def maqola_topish(maqola_id):
+    db = get_db()
+    return db.execute("SELECT * FROM maqolalar WHERE id = ?", (maqola_id,)).fetchone()
+
+
+def maqola_ochirish(maqola_id):
+    db = get_db()
+    db.execute("DELETE FROM maqolalar WHERE id = ?", (maqola_id,))
+    db.commit()
