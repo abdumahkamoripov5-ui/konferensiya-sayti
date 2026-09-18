@@ -102,8 +102,7 @@
   </div>
 
   <div class="konteyner futer__past">
-    <span>&copy; 2026 {{ konf.joy }}. {{ t.futer_huquq }}</span>
-    <a href="{{ url_for('admin_panel') if admin_kirgan else url_for('admin_kirish') }}">{{ t.admin_panel }}</a>
+    <a href="{{ url_for('admin_panel') if admin_kirgan else url_for('admin_kirish') }}">&copy; 2026 {{ konf.joy }}. {{ t.futer_huquq }}</a>
   </div>
 </footer>
 
