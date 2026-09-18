@@ -197,11 +197,13 @@ def maqola_yuborish():
         form = {
             "ism": (request.form.get("ism") or "").strip(),
             "email": (request.form.get("email") or "").strip(),
+            "sarlavha": (request.form.get("sarlavha") or "").strip(),
             "yonalish": (request.form.get("yonalish") or "").strip(),
         }
         fayl = request.files.get("fayl")
 
-        if not form["ism"] or not email_togrimi(form["email"]) or not fayl_togrimi(fayl):
+        if (not form["ism"] or not form["sarlavha"]
+                or not email_togrimi(form["email"]) or not fayl_togrimi(fayl)):
             flash(config.MATN[til]["xato_fayl"], "xato")
             return redirect(url_for("talablar", til=til) + "#yuborish")
 
@@ -210,12 +212,32 @@ def maqola_yuborish():
         fayl_nomi = f"{uuid.uuid4().hex}.{kengaytma}"
         fayl.save(os.path.join(app.config["MAQOLA_PAPKA"], fayl_nomi))
 
-        models.maqola_qoshish(form["ism"], form["email"], form["yonalish"],
+        models.maqola_qoshish(form["ism"], form["email"], form["sarlavha"], form["yonalish"],
                               fayl_nomi, secure_filename(fayl.filename), til)
         flash(config.MATN[til]["muvaffaqiyat_maqola"], "muvaffaqiyat")
         return redirect(url_for("talablar", til=til) + "#yuborish")
 
     return redirect(url_for("talablar", til=til) + "#yuborish")
+
+
+@app.route("/maqolalar", defaults={"til": config.ASOSIY_TIL})
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/maqolalar")
+def maqolalar_royxati():
+    return render_template(
+        "maqolalar.html", faol="maqolalar",
+        maqolalar=models.maqolalar_tasdiqlangan(),
+    )
+
+
+@app.route("/maqola/<int:maqola_id>/yuklab-olish")
+def maqola_yuklab_olish(maqola_id):
+    maqola = models.maqola_topish(maqola_id)
+    if maqola is None or maqola["holat"] != "tasdiqlangan":
+        return redirect(url_for("maqolalar_royxati"))
+    return send_from_directory(
+        app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
+        as_attachment=True, download_name=maqola["original_nomi"],
+    )
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -268,6 +290,14 @@ def admin_maqola_yuklab_olish(maqola_id):
         app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
         as_attachment=True, download_name=maqola["original_nomi"],
     )
+
+
+@app.route("/admin/maqola/<int:maqola_id>/tasdiqlash", methods=["POST"])
+@admin_kerak
+def admin_maqola_tasdiqlash(maqola_id):
+    models.maqola_tasdiqlash(maqola_id)
+    flash("Maqola tasdiqlandi va saytda ko'rina boshladi.", "muvaffaqiyat")
+    return redirect(url_for("admin_panel"))
 
 
 @app.route("/admin/maqola/<int:maqola_id>/ochirish", methods=["POST"])

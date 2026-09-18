@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Ma'lumotlar bazasi bilan ishlash (sqlite3, tashqi kutubxonasiz).
 
-Saytda maqola yuborish formasi yo'q — maqolalar elektron pochta orqali
-qabul qilinadi. Shuning uchun bazada faqat aloqa xabarlari saqlanadi.
+Ikkita jadval: aloqa xabarlari va saytga yuklangan maqolalar (admin
+tasdiqlagandan keyingina jamoatchilikka ochiq bo'ladi).
 """
 
 import os
@@ -29,10 +29,12 @@ CREATE TABLE IF NOT EXISTS maqolalar (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     ism           TEXT NOT NULL,
     email         TEXT NOT NULL,
+    sarlavha      TEXT,
     yonalish      TEXT,
     fayl_nomi     TEXT NOT NULL,
     original_nomi TEXT NOT NULL,
     til           TEXT NOT NULL DEFAULT 'uz',
+    holat         TEXT NOT NULL DEFAULT 'kutilmoqda',
     yaratilgan    TEXT NOT NULL
 );
 """
@@ -65,6 +67,11 @@ def init_db(app):
         ustunlar = {q["name"] for q in db.execute("PRAGMA table_info(xabarlar)")}
         if "til" not in ustunlar:
             db.execute("ALTER TABLE xabarlar ADD COLUMN til TEXT NOT NULL DEFAULT 'uz'")
+        maqola_ustunlar = {q["name"] for q in db.execute("PRAGMA table_info(maqolalar)")}
+        if "sarlavha" not in maqola_ustunlar:
+            db.execute("ALTER TABLE maqolalar ADD COLUMN sarlavha TEXT")
+        if "holat" not in maqola_ustunlar:
+            db.execute("ALTER TABLE maqolalar ADD COLUMN holat TEXT NOT NULL DEFAULT 'kutilmoqda'")
         db.commit()
 
 
@@ -114,12 +121,12 @@ def statistika():
 
 # --- Maqolalar ---------------------------------------------------------------
 
-def maqola_qoshish(ism, email, yonalish, fayl_nomi, original_nomi, til="uz"):
+def maqola_qoshish(ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til="uz"):
     db = get_db()
     db.execute(
-        """INSERT INTO maqolalar (ism, email, yonalish, fayl_nomi, original_nomi, til, yaratilgan)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (ism, email, yonalish, fayl_nomi, original_nomi, til,
+        """INSERT INTO maqolalar (ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til, yaratilgan)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til,
          datetime.now().strftime("%Y-%m-%d %H:%M")),
     )
     db.commit()
@@ -130,9 +137,22 @@ def maqolalar_royxati():
     return db.execute("SELECT * FROM maqolalar ORDER BY id DESC").fetchall()
 
 
+def maqolalar_tasdiqlangan():
+    db = get_db()
+    return db.execute(
+        "SELECT * FROM maqolalar WHERE holat = 'tasdiqlangan' ORDER BY id DESC"
+    ).fetchall()
+
+
 def maqola_topish(maqola_id):
     db = get_db()
     return db.execute("SELECT * FROM maqolalar WHERE id = ?", (maqola_id,)).fetchone()
+
+
+def maqola_tasdiqlash(maqola_id):
+    db = get_db()
+    db.execute("UPDATE maqolalar SET holat = 'tasdiqlangan' WHERE id = ?", (maqola_id,))
+    db.commit()
 
 
 def maqola_ochirish(maqola_id):

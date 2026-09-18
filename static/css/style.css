@@ -411,6 +411,7 @@ img { max-width: 100%; display: block; }
   font-size: .74rem; font-weight: 600;
 }
 .belgi--yumshoq { background: var(--fon-kulrang); color: var(--matn-xira); border: 1px solid var(--chegara); }
+.belgi--urgu { background: rgba(200, 150, 62, .15); color: var(--urgu); border: 1px solid var(--urgu-och); }
 
 /* --- Ikki ustunli tartib -------------------------------------------------- */
 

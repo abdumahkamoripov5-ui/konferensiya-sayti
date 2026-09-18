@@ -85,22 +85,34 @@
       <table class="jadval">
         <thead>
           <tr>
-            <th>#</th><th>Kim</th><th>Yo'nalish</th><th>Fayl</th><th>Til</th><th>Sana</th><th></th>
+            <th>#</th><th>Kim</th><th>Sarlavha</th><th>Yo'nalish</th><th>Fayl</th><th>Holat</th><th>Sana</th><th></th>
           </tr>
         </thead>
         <tbody>
           {% for m in maqolalar %}
-          <tr>
+          <tr class="{{ 'qator--yangi' if m.holat != 'tasdiqlangan' }}">
             <td>{{ m.id }}</td>
             <td>
               <strong>{{ m.ism }}</strong><br>
               <a href="mailto:{{ m.email }}" class="kichik">{{ m.email }}</a>
             </td>
+            <td>{{ m.sarlavha or '—' }}</td>
             <td>{{ m.yonalish or '—' }}</td>
             <td><a href="{{ url_for('admin_maqola_yuklab_olish', maqola_id=m.id) }}">{{ m.original_nomi }}</a></td>
-            <td><span class="belgi belgi--yumshoq">{{ m.til | upper }}</span></td>
+            <td>
+              {% if m.holat == 'tasdiqlangan' %}
+              <span class="belgi belgi--yumshoq">Tasdiqlangan</span>
+              {% else %}
+              <span class="belgi belgi--urgu">Kutilmoqda</span>
+              {% endif %}
+            </td>
             <td class="kichik">{{ m.yaratilgan }}</td>
             <td class="amallar">
+              {% if m.holat != 'tasdiqlangan' %}
+              <form method="post" action="{{ url_for('admin_maqola_tasdiqlash', maqola_id=m.id) }}">
+                <button class="mayda-tugma" type="submit">Tasdiqlash</button>
+              </form>
+              {% endif %}
               <form method="post" action="{{ url_for('admin_maqola_ochirish', maqola_id=m.id) }}"
                     onsubmit="return confirm('Maqola o‘chirilsinmi?')">
                 <button class="mayda-tugma mayda-tugma--qizil" type="submit">O'chirish</button>
