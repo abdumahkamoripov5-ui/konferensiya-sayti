@@ -7,20 +7,69 @@ shablonlarga tegilmaydi.
 """
 
 import os
+import secrets
+import tempfile
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
+def session_key():
+    configured = os.environ.get("SECRET_KEY")
+    if configured:
+        return configured
+    if os.environ.get("VERCEL") or os.environ.get("APP_ENV") == "production":
+        raise RuntimeError("SECRET_KEY is required in production.")
+    # Local workers and restarts must share the same private, untracked key.
+    directory = os.path.join(BASE_DIR, "data")
+    os.makedirs(directory, exist_ok=True)
+    target = os.path.join(directory, ".session-key")
+    if not os.path.exists(target):
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as handle:
+            temporary = handle.name
+            handle.write(secrets.token_hex(32).encode("ascii"))
+        try:
+            try:
+                os.link(temporary, target)
+            except FileExistsError:
+                pass
+        finally:
+            os.unlink(temporary)
+    with open(target, encoding="ascii") as handle:
+        value = handle.read().strip()
+    if len(value) < 32:
+        raise RuntimeError("Invalid local session key. Set SECRET_KEY explicitly.")
+    return value
+
+
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "turkiy-yozma-meros-2026")
+    SECRET_KEY = session_key()
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "1" if os.environ.get("VERCEL") else "0") == "1"
+    PERMANENT_SESSION_LIFETIME = 3600
+    MAX_FORM_MEMORY_SIZE = 256 * 1024
+    MAX_FORM_PARTS = 30
+
+    DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
     DATABASE = os.path.join(BASE_DIR, "data", "konferensiya.db")
     MAQOLA_PAPKA = os.path.join(BASE_DIR, "data", "maqolalar")
     MAQOLA_KENGAYTMALAR = {"pdf", "doc", "docx"}
-    MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB
+    MAX_CONTENT_LENGTH = (4 if os.environ.get("VERCEL") else 20) * 1024 * 1024
 
     ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
-    ADMIN_PAROL = os.environ.get("ADMIN_PAROL", "admin123")
+    ADMIN_PAROL = os.environ.get("ADMIN_PAROL", "")
+    ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", "")
+    PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
+    SMTP_HOST = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_FROM = os.environ.get("SMTP_FROM", "")
+    SMTP_SSL = os.environ.get("SMTP_SSL", "0") == "1"
+    SUBMISSIONS_OPEN = os.environ.get("SUBMISSIONS_OPEN", "1") == "1"
+    REGISTRATION_OPEN = os.environ.get("REGISTRATION_OPEN", "1") == "1"
+    TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "0"))
 
     # Shablonlar o'zgarsa serverni qayta ishga tushirmasdan yangilansin.
     # DEBUG o'chiq bo'lganda Flask sukut bo'yicha ularni keshlab qo'yadi;
@@ -615,9 +664,9 @@ MATN = {
         "maqola_forma_sarlavha": "Maqolani saytga yuklash",
         "forma_sarlavha": "Maqola sarlavhasi",
         "forma_yonalish": "Ilmiy yo'nalish",
-        "forma_fayl": "Maqola fayli (PDF, DOC, DOCX — 20 MB gacha)",
+        "forma_fayl": "Maqola fayli (PDF, DOC, DOCX — {hajm} MB gacha)",
         "forma_maqola_yuborish": "Faylni yuborish",
-        "xato_fayl": "Iltimos, ism, sarlavha, email va to'g'ri formatdagi faylni (PDF/DOC/DOCX, 20 MB gacha) to'ldiring.",
+        "xato_fayl": "Iltimos, ism, sarlavha, email va to'g'ri formatdagi faylni (PDF/DOC/DOCX, {hajm} MB gacha) to'ldiring.",
         "muvaffaqiyat_maqola": "Maqolangiz qabul qilindi. Admin tasdiqlagach saytda ko'rinadi. Rahmat!",
         # maqolalar (ochiq sahifa)
         "maqolalar_nishon": "Maqolalar",
@@ -736,9 +785,9 @@ MATN = {
         "maqola_forma_sarlavha": "Upload your paper",
         "forma_sarlavha": "Paper title",
         "forma_yonalish": "Research track",
-        "forma_fayl": "Paper file (PDF, DOC, DOCX — up to 20 MB)",
+        "forma_fayl": "Paper file (PDF, DOC, DOCX — up to {hajm} MB)",
         "forma_maqola_yuborish": "Upload file",
-        "xato_fayl": "Please provide your name, title, email and a valid file (PDF/DOC/DOCX, up to 20 MB).",
+        "xato_fayl": "Please provide your name, title, email and a valid file (PDF/DOC/DOCX, up to {hajm} MB).",
         "muvaffaqiyat_maqola": "Your paper has been received. It will appear on the site once approved. Thank you!",
         "maqolalar_nishon": "Papers",
         "maqolalar_sahifa_sarlavha": "Approved papers",
@@ -851,9 +900,9 @@ MATN = {
         "maqola_forma_sarlavha": "Bildirinizi yükleyin",
         "forma_sarlavha": "Bildiri başlığı",
         "forma_yonalish": "Bilimsel alan",
-        "forma_fayl": "Bildiri dosyası (PDF, DOC, DOCX — 20 MB'a kadar)",
+        "forma_fayl": "Bildiri dosyası (PDF, DOC, DOCX — {hajm} MB'a kadar)",
         "forma_maqola_yuborish": "Dosyayı gönder",
-        "xato_fayl": "Lütfen adınızı, başlığı, e-postanızı ve geçerli bir dosya (PDF/DOC/DOCX, 20 MB'a kadar) seçin.",
+        "xato_fayl": "Lütfen adınızı, başlığı, e-postanızı ve geçerli bir dosya (PDF/DOC/DOCX, {hajm} MB'a kadar) seçin.",
         "muvaffaqiyat_maqola": "Bildiriniz alındı. Onaylandıktan sonra sitede görünecektir. Teşekkür ederiz!",
         "maqolalar_nishon": "Bildiriler",
         "maqolalar_sahifa_sarlavha": "Onaylanmış bildiriler",
@@ -912,3 +961,85 @@ def mahalliy(element, til):
 def royxat(elementlar, til):
     """Ro'yxatdagi har bir elementni `mahalliy()` orqali o'tkazadi."""
     return [mahalliy(e, til) for e in elementlar]
+
+
+# Vercel so‘rov chegarasiga mos fayl hajmini ko‘rsatish.
+for _matn in MATN.values():
+    for _kalit in ("forma_fayl", "xato_fayl"):
+        _matn[_kalit] = _matn[_kalit].format(hajm=4 if os.environ.get("VERCEL") else 20)
+
+# Additional submission and administration controls, in all supported languages.
+YANGI_MATN = {
+    "uz": {
+        "tracking_title": "Maqola holati", "reference": "Ariza raqami",
+        "tracking_save": "Holatni kuzatish uchun ushbu maxfiy havolani saqlab qo'ying. Uni boshqalarga bermang.",
+        "tracking_link": "Maqola holatini ko'rish", "admin_note": "Tashkiliy qo'mita izohi",
+        "closed": "Maqola qabul qilish muddati tugagan yoki qabul vaqtincha yopilgan.",
+        "csrf_error": "Forma muddati tugagan. Sahifani yangilab, qayta yuboring.",
+        "rate_error": "Juda ko'p urinish. Biroz kutib, qayta urinib ko'ring.",
+        "duplicate": "Bu email orqali ushbu fayl avval yuborilgan. Takroriy nusxa saqlanmadi.",
+        "field_error": "Maydonlarni tekshiring: ism 2–150, sarlavha 3–300 belgi; email va yo'nalish to'g'ri bo'lishi kerak.",
+        "file_again": "Xato tuzatilgach faylni qayta tanlang. Bo'sh, buzilgan yoki shifrlangan fayllar qabul qilinmaydi.",
+        "search": "Qidirish", "search_hint": "Ism, sarlavha yoki yo'nalish", "all": "Barchasi",
+        "previous": "Oldingi", "next": "Keyingi", "page": "Sahifa", "calendar": "Taqvimga qo'shish",
+        "status": "Holat", "save": "Saqlash", "mail_failed": "Email yuborilmadi. Holatni kuzatish havolasini saqlang.",
+        "mail_sent": "Tasdiq xati emailingizga yuborildi.", "admin_unconfigured": "Admin paroli serverda hali sozlanmagan.",
+        "max_message": "Ism 2–150, mavzu 200, xabar 10–5000 belgidan iborat bo'lsin.",
+        "privacy": "Ism va maqola tasdiqlangach ommaga ko'rinadi. Email faqat tashkiliy qo'mita uchun saqlanadi.",
+        "filter": "Filtrlash", "clear": "Tozalash",
+    },
+    "en": {
+        "tracking_title": "Submission status", "reference": "Submission number",
+        "tracking_save": "Save this private link to check your submission status. Do not share it.",
+        "tracking_link": "Check submission status", "admin_note": "Organizing committee feedback",
+        "closed": "The submission deadline has passed or submissions are temporarily closed.",
+        "csrf_error": "This form has expired. Refresh the page and try again.",
+        "rate_error": "Too many attempts. Please wait and try again.",
+        "duplicate": "This file has already been submitted with this email. No duplicate was saved.",
+        "field_error": "Check your details: name 2–150, title 3–300 characters; email and research track must be valid.",
+        "file_again": "Select your file again after correcting the error. Empty, damaged or encrypted files are not accepted.",
+        "search": "Search", "search_hint": "Name, title or research track", "all": "All",
+        "previous": "Previous", "next": "Next", "page": "Page", "calendar": "Add to calendar",
+        "status": "Status", "save": "Save", "mail_failed": "Email could not be sent. Save your tracking link.",
+        "mail_sent": "A confirmation email has been sent.", "admin_unconfigured": "The administrator password has not been configured on the server.",
+        "max_message": "Use 2–150 characters for your name, up to 200 for the subject and 10–5000 for the message.",
+        "privacy": "Your name and paper will be public after approval. Your email is only available to the organizing committee.",
+        "filter": "Filter", "clear": "Clear",
+    },
+    "tr": {
+        "tracking_title": "Başvuru durumu", "reference": "Başvuru numarası",
+        "tracking_save": "Başvurunuzu takip etmek için bu özel bağlantıyı saklayın. Başkalarıyla paylaşmayın.",
+        "tracking_link": "Başvuru durumunu gör", "admin_note": "Düzenleme kurulu görüşü",
+        "closed": "Başvuru süresi doldu veya başvurular geçici olarak kapatıldı.",
+        "csrf_error": "Formun süresi doldu. Sayfayı yenileyip tekrar deneyin.",
+        "rate_error": "Çok fazla deneme. Lütfen bekleyip tekrar deneyin.",
+        "duplicate": "Bu dosya bu e-posta ile daha önce gönderilmiş. Kopya kaydedilmedi.",
+        "field_error": "Bilgileri kontrol edin: ad 2–150, başlık 3–300 karakter; e-posta ve bilimsel alan geçerli olmalıdır.",
+        "file_again": "Hatayı düzelttikten sonra dosyayı tekrar seçin. Boş, bozuk veya şifreli dosyalar kabul edilmez.",
+        "search": "Ara", "search_hint": "Ad, başlık veya bilimsel alan", "all": "Tümü",
+        "previous": "Önceki", "next": "Sonraki", "page": "Sayfa", "calendar": "Takvime ekle",
+        "status": "Durum", "save": "Kaydet", "mail_failed": "E-posta gönderilemedi. Takip bağlantınızı saklayın.",
+        "mail_sent": "Onay e-postası gönderildi.", "admin_unconfigured": "Yönetici parolası sunucuda henüz yapılandırılmadı.",
+        "max_message": "Ad 2–150, konu en fazla 200, mesaj 10–5000 karakter olmalıdır.",
+        "privacy": "Adınız ve bildiriniz onaylandıktan sonra herkese açık olacaktır. E-posta yalnızca düzenleme kurulu içindir.",
+        "filter": "Filtrele", "clear": "Temizle",
+    },
+}
+HOLAT_MATN = {
+    "uz": {"kutilmoqda": "Qabul qilindi", "korib_chiqilmoqda": "Ko'rib chiqilmoqda", "tuzatish_kerak": "Tuzatish kerak", "tasdiqlangan": "Tasdiqlangan", "rad_etilgan": "Rad etilgan"},
+    "en": {"kutilmoqda": "Received", "korib_chiqilmoqda": "Under review", "tuzatish_kerak": "Revision required", "tasdiqlangan": "Approved", "rad_etilgan": "Rejected"},
+    "tr": {"kutilmoqda": "Alındı", "korib_chiqilmoqda": "İnceleniyor", "tuzatish_kerak": "Düzeltme gerekli", "tasdiqlangan": "Onaylandı", "rad_etilgan": "Reddedildi"},
+}
+for _til, _extra in YANGI_MATN.items():
+    MATN[_til].update(_extra)
+    MATN[_til]["holatlar"] = HOLAT_MATN[_til]
+
+SANA_ISO = "2026-12-15T09:00:00+05:00"
+MUDDAT_ISO = "2026-11-15T23:59:59+05:00"
+
+for _til, _labels in {
+    "uz": ("Ro'yxatdan o'tish", "Konferensiyada qatnashish", "Tashkilot / universitet", "Qatnashish shakli", "Shaxsan", "Onlayn", "Arizangiz qabul qilindi. Bu email bilan qayta ro'yxatdan o'tish shart emas.", "Ma'lumotlarimni konferensiyani tashkil etish uchun saqlashga roziman.", "Qatnashish uchun ro'yxatdan o'tish yopilgan.", "Ism, email, tashkilot, qatnashish shakli va rozilikni tekshiring."),
+    "en": ("Register", "Conference registration", "Organization / university", "Attendance", "In person", "Online", "Your registration has been received. You do not need to register again with this email.", "I agree to my details being stored for organizing the conference.", "Conference registration is closed.", "Check your name, email, organization, attendance and consent."),
+    "tr": ("Kayıt ol", "Konferans kaydı", "Kurum / üniversite", "Katılım şekli", "Yüz yüze", "Çevrimiçi", "Kaydınız alındı. Bu e-posta ile tekrar kayıt olmanız gerekmez.", "Bilgilerimin konferansın düzenlenmesi amacıyla saklanmasını kabul ediyorum.", "Konferans kaydı kapalı.", "Ad, e-posta, kurum, katılım şekli ve onayı kontrol edin."),
+}.items():
+    MATN[_til].update(dict(zip(("register", "registration_title", "organization", "attendance", "in_person", "online", "registration_success", "consent", "registration_closed", "registration_error"), _labels)))

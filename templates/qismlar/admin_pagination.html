@@ -1,0 +1,11 @@
+{% if listing.pages > 1 %}
+<nav class="filtr" aria-label="{{ t.page }}">
+  {% if listing.page > 1 %}
+  <a href="{{ url_for('admin_panel', q=search, maqola_holat=status, holat='yangi' if faqat_yangi else '', xpage=listing.page-1 if page_key == 'xpage' else messages.page, mpage=listing.page-1 if page_key == 'mpage' else papers.page) }}">{{ t.previous }}</a>
+  {% endif %}
+  <span>{{ t.page }} {{ listing.page }} / {{ listing.pages }} ({{ listing.total }})</span>
+  {% if listing.page < listing.pages %}
+  <a href="{{ url_for('admin_panel', q=search, maqola_holat=status, holat='yangi' if faqat_yangi else '', xpage=listing.page+1 if page_key == 'xpage' else messages.page, mpage=listing.page+1 if page_key == 'mpage' else papers.page) }}">{{ t.next }}</a>
+  {% endif %}
+</nav>
+{% endif %}

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block sarlavha %}{{ t.nav_bosh }}{% endblock %} — {{ konf.qisqa_nom }}</title>
+  {% if request.endpoint in ('admin_panel', 'admin_kirish', 'maqola_holati') %}<meta name="robots" content="noindex,nofollow">{% endif %}
   <meta name="description" content="{{ konf.tur }} — {{ konf.nom }}. {{ konf.sana }}, {{ konf.joy }}.">
   {% for kod, til_url in til_havola.items() %}
   <link rel="alternate" hreflang="{{ tillar[kod].html }}" href="{{ til_url }}">
@@ -25,7 +26,7 @@
       </span>
     </a>
 
-    <button class="burger" id="burger" aria-label="Menu" aria-expanded="false">
+    <button class="burger" id="burger" aria-label="Menu" aria-controls="nav" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
 
@@ -54,7 +55,7 @@
   {% if xabarlar %}
     <div class="konteyner flash-blok">
       {% for turi, matn in xabarlar %}
-        <div class="flash flash--{{ turi }}">
+        <div class="flash flash--{{ turi }}" role="{{ 'alert' if turi == 'xato' else 'status' }}">
           <span class="flash__belgi">
             {%- if turi == 'muvaffaqiyat' -%}✓{%- elif turi == 'xato' -%}✕{%- else -%}!{%- endif -%}
           </span>
@@ -76,6 +77,8 @@
       <h4 class="futer__sarlavha">{{ konf.qisqa_nom }}</h4>
       <p class="futer__matn">{{ konf.nom }}</p>
       <p class="futer__matn futer__matn--xira">{{ konf.sana }} · {{ konf.joy }}</p>
+      <p><a href="{{ url_for('royxatdan_otish') }}">{{ t.register }}</a></p>
+      <a href="{{ url_for('taqvim') }}">{{ t.calendar }}</a>
     </div>
 
     <div>

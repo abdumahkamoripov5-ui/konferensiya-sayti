@@ -36,25 +36,33 @@
 
     <aside class="yonpanel yonpanel--urgu" id="yuborish">
       <h3>{{ t.maqola_forma_sarlavha }}</h3>
+      {% if errors %}
+      <div class="flash flash--xato" role="alert"><ul>
+        {% for key, message in errors.items() %}<li>{% if key != 'general' %}<a href="#maqola-{{ key }}">{{ message }}</a>{% else %}{{ message }}{% endif %}</li>{% endfor %}
+      </ul></div>
+      <p>{{ t.file_again }}</p>
+      {% endif %}
+      {% if qabul_ochiq %}
       <form class="forma" method="post" action="{{ url_for('maqola_yuborish') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="maydon-guruh">
           <label for="maqola-ism">{{ t.forma_ism }}</label>
-          <input type="text" id="maqola-ism" name="ism" required>
+          <input type="text" id="maqola-ism" name="ism" required maxlength="150" minlength="2" value="{{ form.get('ism', '') }}" {% if errors.get('ism') %}aria-invalid="true"{% endif %}>
         </div>
         <div class="maydon-guruh">
           <label for="maqola-email">{{ t.forma_email }}</label>
-          <input type="email" id="maqola-email" name="email" required>
+          <input type="email" id="maqola-email" name="email" required maxlength="254" minlength="1" value="{{ form.get('email', '') }}" {% if errors.get('email') %}aria-invalid="true"{% endif %}>
         </div>
         <div class="maydon-guruh">
           <label for="maqola-sarlavha">{{ t.forma_sarlavha }}</label>
-          <input type="text" id="maqola-sarlavha" name="sarlavha" required>
+          <input type="text" id="maqola-sarlavha" name="sarlavha" required maxlength="300" minlength="3" value="{{ form.get('sarlavha', '') }}" {% if errors.get('sarlavha') %}aria-invalid="true"{% endif %}>
         </div>
         <div class="maydon-guruh">
           <label for="maqola-yonalish">{{ t.forma_yonalish }} <span class="kichik">({{ t.forma_ixtiyoriy }})</span></label>
           <select id="maqola-yonalish" name="yonalish">
             <option value=""></option>
             {% for y in yonalishlar %}
-            <option value="{{ y.nom }}">{{ y.nom }}</option>
+            <option value="{{ y.id }}" {{ 'selected' if form.get('yonalish') == y.id|string }}>{{ y.nom }}</option>
             {% endfor %}
           </select>
         </div>
@@ -63,7 +71,9 @@
           <input type="file" id="maqola-fayl" name="fayl" accept=".pdf,.doc,.docx" required>
         </div>
         <button type="submit" class="tugma tugma--asosiy tugma--keng">{{ t.forma_maqola_yuborish }}</button>
+        <p class="kichik">{{ t.privacy }}</p>
       </form>
+      {% else %}<p class="eslatma" role="status">{{ t.closed }}</p>{% endif %}
 
       <p class="kichik" style="margin-top: 1rem; text-align: center;">{{ t.yoki_ajratuvchi }}</p>
 

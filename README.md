@@ -1,7 +1,7 @@
 # Turkiy yozma meros — 2026
 
 «Turkiy yozma meros: sivilizatsiyalararo muloqot va raqamli kelajak» xalqaro
-ilmiy yig'ini sayti. Flask + Jinja2 + SQLite, tashqi kutubxonalarsiz (faqat Flask).
+ilmiy yig'ini sayti. Flask + Jinja2, lokal SQLite yoki PostgreSQL; hujjatlar tuzilishini tekshirish va CSRF himoyasi bilan.
 
 **Yig'in:** 2026-yil 15–16-dekabr · Toshkent davlat sharqshunoslik universiteti
 **Tashkilotchilar:** OTFIV · TDSHU · Turkiy Davlatlar Tashkiloti (TDT) · Turk Tili Qurumi (TDK)
@@ -46,9 +46,11 @@ nusxasiga olib boradi.
 | `/aloqa` | Aloqa formasi va tashkiliy qo'mita manzili |
 | `/admin` | Kelgan aloqa xabarlari (login talab qiladi) |
 
-**Maqola yuborish formasi yo'q** — chorlovga ko'ra maqolalar elektron pochta
-(`mangu8bitig@gmail.com`) orqali qabul qilinadi. Saytdagi «Maqola yuborish»
-tugmasi shu pochtani ochadi.
+Maqolalar `/talablar#yuborish` formasi orqali PDF/DOC/DOCX formatida yoki
+ko'rsatilgan elektron pochta orqali qabul qilinadi. Saytga yuborilgan maqola
+maxfiy kuzatuv havolasini oladi; faqat admin tasdiqlagach ommaga ochiladi.
+`/royxatdan-otish` orqali qatnashchi sifatida ro'yxatdan o'tish mumkin.
+`/taqvim.ics` konferensiyani taqvimga qo'shadi.
 
 ## Matnlarni o'zgartirish
 
@@ -64,7 +66,8 @@ Rasm qo'yilmagan bo'lsa sayt ism bosh harflaridan avatar chizadi — buzilmaydi.
 
 ## Admin panel
 
-<http://127.0.0.1:5000/admin/kirish> — standart login `admin`, parol `admin123`.
+<http://127.0.0.1:5000/admin/kirish> — login `ADMIN_LOGIN` (sukut bo'yicha `admin`).
+Standart parol yo'q: `ADMIN_PAROL` yoki `ADMIN_PASSWORD_HASH` sozlanmasa kirish yopiq.
 Kelgan aloqa xabarlarini ko'rish, o'qilgan deb belgilash, o'chirish va CSV'ga
 eksport qilish.
 
@@ -97,3 +100,55 @@ data/              — SQLite bazasi
 pip install gunicorn
 gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ```
+
+## Vercel va Supabase
+
+Vercel Flask ilovasini `app.py` orqali aniqlaydi. Environment Variables ichida
+`DATABASE_URL` (Supabase Transaction pooler PostgreSQL URI), `SECRET_KEY`,
+`ADMIN_LOGIN`, `ADMIN_PAROL` ni belgilang. URI parolida maxsus belgilar bo'lsa,
+ular URL encoding bilan yozilishi kerak. Muhit o'zgaruvchilari o'zgargach yangi
+deploy kerak.
+
+`DATABASE_URL` mavjud bo'lsa xabarlar, maqola ma'lumotlari va fayl baytlari
+PostgreSQL'da saqlanadi; jadvallar avtomatik yaratiladi. Supabase Data API'da
+jadvallarga anonim kirish RLS bilan yopiladi. Fayllar faqat admin yoki maqola
+tasdiqlangandan keyin ochiq yuklab olish yo'li orqali olinadi.
+Vercelda butun yuklash so'rovi chegarasi 4 MiB (forma bilan birga).
+Kattaroq fayllar uchun brauzerdan bevosita object storage'ga yuklash kerak.
+Lokal muhitda DATABASE_URL bo'lmasa SQLite va lokal fayllar ishlaydi.
+Mavjud PythonAnywhere/SQLite ma'lumotlari avtomatik ko'chirilmaydi.
+
+## Xavfsizlik va yangi imkoniyatlar
+
+- Har bir POST forma CSRF token bilan himoyalangan; logout ham POST.
+- Login: 15 daqiqada 5 urinish; aloqa, maqola va ro'yxatdan o'tish: har biri
+  10 daqiqada 5 urinish / IP. Cheklov bazada saqlanadi, workerlar o'rtasida umumiy.
+- `APP_ENV=production` yoki Vercelda kamida 32 belgili `SECRET_KEY` majburiy.
+  Lokal muhitda kalit `data/.session-key` da saqlanadi va Git'ga kiritilmaydi.
+- Ishlab chiqarishda `COOKIE_SECURE=1` va HTTPS ishlating. Debug sukut bo'yicha o'chiq.
+- Ishonchli reverse proxy bo'lsa `TRUSTED_PROXY_HOPS` ni shu infratuzilmadagi
+  haqiqiy proxy soniga moslang. Bevosita internetga ochilgan serverda `0` qolsin.
+- Admin panel: qidiruv, holat filtri, 20 tadan sahifalash, izoh va holatni o'zgartirish.
+  Tasdiq bekor qilinsa yuklab olish darhol yopiladi. Qatnashchilar ro'yxati admin uchungina.
+- `SUBMISSIONS_OPEN=0` maqola qabulini, `REGISTRATION_OPEN=0` qatnashchi qabulini yopadi.
+  Maqola muddati Toshkent vaqti bilan avtomatik tekshiriladi.
+- Bir emaildan bir xil fayl takroran saqlanmaydi. Eski maqolalar saqlanadi;
+  eski yozuvlarga kuzatuv havolasi avtomatik berilmaydi.
+- Fayl tuzilishini tekshirish antivirus tekshiruvi o'rnini bosmaydi.
+
+### Email xabarnomalari (ixtiyoriy)
+
+`SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
+va `PUBLIC_URL=https://sizning-domeningiz` ni sozlang. 465-port uchun `SMTP_SSL=1`.
+Boshqa holatda STARTTLS majburiy ishlatiladi. Sozlamalar bo'lmasa tarmoq orqali
+xat yuborilmaydi; foydalanuvchi kuzatuv havolasini sahifadan saqlab oladi.
+SMTP xatosi maqolani saqlashni bekor qilmaydi. Maxfiy havolani boshqalarga bermang.
+
+### Tekshirish
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Testlar alohida vaqtinchalik SQLite bazasida ishlaydi, haqiqiy ma'lumotlarga tegmaydi.
+Ishga tushirishdan avval `pip install -r requirements.txt` bajarilishi kerak.

@@ -10,8 +10,12 @@
       <h1>Aloqa xabarlari</h1>
     </div>
     <div class="admin-bosh__amallar">
+      <a href="{{ url_for('admin_qatnashchilar') }}" class="tugma tugma--chegara tugma--kichik">{{ t.registration_title }}</a>
       <a href="{{ url_for('admin_eksport') }}" class="tugma tugma--chegara tugma--kichik">↓ CSV</a>
-      <a href="{{ url_for('admin_chiqish') }}" class="tugma tugma--kichik">Chiqish</a>
+      <form action="{{ url_for('admin_chiqish') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="tugma tugma--kichik">Chiqish</button>
+      </form>
     </div>
   </div>
 </section>
@@ -24,10 +28,22 @@
       <div class="raqam"><strong>{{ stat.oqilmagan }}</strong><span>o'qilmagan</span></div>
     </div>
 
+    <form method="get" class="filtr audit-filters">
+      <label for="admin-q">{{ t.search }}</label>
+      <input type="search" id="admin-q" name="q" value="{{ search }}" maxlength="100">
+      <label for="admin-status">{{ t.status }}</label>
+      <select id="admin-status" name="maqola_holat">
+        <option value="">{{ t.all }}</option>
+        {% for key, label in t.holatlar.items() %}<option value="{{ key }}" {{ 'selected' if status == key }}>{{ label }}</option>{% endfor %}
+      </select>
+      {% if faqat_yangi %}<input type="hidden" name="holat" value="yangi">{% endif %}
+      <button class="tugma tugma--kichik" type="submit">{{ t.filter }}</button>
+      <a href="{{ url_for('admin_panel') }}">{{ t.clear }}</a>
+    </form>
     <div class="filtr">
-      <a href="{{ url_for('admin_panel') }}"
+      <a href="{{ url_for('admin_panel', q=search, maqola_holat=status) }}"
          class="filtr__tugma {{ '' if faqat_yangi else 'faol' }}">Hammasi</a>
-      <a href="{{ url_for('admin_panel', holat='yangi') }}"
+      <a href="{{ url_for('admin_panel', holat='yangi', q=search, maqola_holat=status) }}"
          class="filtr__tugma {{ 'faol' if faqat_yangi }}">O'qilmagan</a>
     </div>
 
@@ -56,11 +72,13 @@
             <td class="amallar">
               {% if not x.oqilgan %}
               <form method="post" action="{{ url_for('admin_oqildi', xabar_id=x.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="mayda-tugma" type="submit">O'qildi</button>
               </form>
               {% endif %}
               <form method="post" action="{{ url_for('admin_ochirish', xabar_id=x.id) }}"
                     onsubmit="return confirm('Xabar o‘chirilsinmi?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="mayda-tugma mayda-tugma--qizil" type="submit">O'chirish</button>
               </form>
             </td>
@@ -72,6 +90,7 @@
     {% else %}
     <p class="bosh-holat">Hozircha xabar yo'q.</p>
     {% endif %}
+    {% set listing = messages %}{% set page_key = 'xpage' %}{% include 'qismlar/admin_pagination.html' %}
 
   </div>
 </section>
@@ -100,21 +119,23 @@
             <td>{{ m.yonalish or '—' }}</td>
             <td><a href="{{ url_for('admin_maqola_yuklab_olish', maqola_id=m.id) }}">{{ m.original_nomi }}</a></td>
             <td>
-              {% if m.holat == 'tasdiqlangan' %}
-              <span class="belgi belgi--yumshoq">Tasdiqlangan</span>
-              {% else %}
-              <span class="belgi belgi--urgu">Kutilmoqda</span>
-              {% endif %}
+              <span class="belgi belgi--yumshoq">{{ t.holatlar.get(m.holat, m.holat) }}</span>
             </td>
             <td class="kichik">{{ m.yaratilgan }}</td>
             <td class="amallar">
-              {% if m.holat != 'tasdiqlangan' %}
-              <form method="post" action="{{ url_for('admin_maqola_tasdiqlash', maqola_id=m.id) }}">
-                <button class="mayda-tugma" type="submit">Tasdiqlash</button>
+              <form method="post" action="{{ url_for('admin_maqola_holat', maqola_id=m.id) }}" class="status-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label for="status-{{ m.id }}">{{ t.status }}</label>
+                <select id="status-{{ m.id }}" name="holat">
+                  {% for key, label in t.holatlar.items() %}<option value="{{ key }}" {{ 'selected' if m.holat == key }}>{{ label }}</option>{% endfor %}
+                </select>
+                <label for="note-{{ m.id }}">{{ t.admin_note }}</label>
+                <textarea id="note-{{ m.id }}" name="izoh" maxlength="3000" rows="3">{{ m.izoh or '' }}</textarea>
+                <button type="submit" class="mayda-tugma">{{ t.save }}</button>
               </form>
-              {% endif %}
               <form method="post" action="{{ url_for('admin_maqola_ochirish', maqola_id=m.id) }}"
                     onsubmit="return confirm('Maqola o‘chirilsinmi?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="mayda-tugma mayda-tugma--qizil" type="submit">O'chirish</button>
               </form>
             </td>
@@ -126,6 +147,7 @@
     {% else %}
     <p class="bosh-holat">Hozircha maqola yo'q.</p>
     {% endif %}
+    {% set listing = papers %}{% set page_key = 'mpage' %}{% include 'qismlar/admin_pagination.html' %}
 
   </div>
 </section>

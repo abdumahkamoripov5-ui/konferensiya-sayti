@@ -10,18 +10,38 @@ import io
 import os
 import re
 import uuid
+import secrets
+import hashlib
+import hmac
+from datetime import datetime, timezone
+from pathlib import Path
 from functools import wraps
 
 from flask import (Flask, flash, g, redirect, render_template, request,
-                   Response, send_from_directory, session, url_for)
+                   Response, abort, send_file, send_from_directory, session, url_for)
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_wtf import CSRFProtect
+from flask_wtf.csrf import CSRFError
+from uploads import validate_document
+from notifications import notify_author
 
 import config
 import models
 
 app = Flask(__name__)
 app.config.from_object(config.Config)
+if os.environ.get("VERCEL") or os.environ.get("APP_ENV") == "production":
+    key = os.environ.get("SECRET_KEY", "")
+    if len(key) < 32 or key == "turkiy-yozma-meros-2026":
+        raise RuntimeError("Set a random SECRET_KEY of at least 32 characters in production.")
+    app.config["SESSION_COOKIE_SECURE"] = True
+if app.config["TRUSTED_PROXY_HOPS"]:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=app.config["TRUSTED_PROXY_HOPS"], x_proto=app.config["TRUSTED_PROXY_HOPS"])
+csrf = CSRFProtect(app)
+
 
 # Qo'shimcha tillar manzilda prefiks bo'lib turadi; o'zbekcha prefikssiz
 QOSHIMCHA_TILLAR = "en,tr"
@@ -62,7 +82,7 @@ def til_havolalari():
 # --- Yordamchi funksiyalar -------------------------------------------------
 
 def email_togrimi(email):
-    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$", email or ""))
+    return len(email or "") <= 254 and bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email or ""))
 
 
 def admin_kerak(f):
@@ -89,6 +109,8 @@ def umumiy_kontekst():
         "sana_iso": config.SANA_ISO,
         "chorlov_fayl": config.CHORLOV_FAYL.get(til),
         "admin_kirgan": session.get("admin", False),
+        "qabul_ochiq": qabul_ochiq(),
+        "rasm_bor": lambda name: bool(name) and (Path(app.static_folder) / "img" / "ekspertlar" / name).is_file(),
     }
 
 
@@ -153,6 +175,7 @@ def talablar():
     return render_template(
         "talablar.html",
         faol="talablar",
+        form={}, errors={},
         talablar=config.TALABLAR[til],
         eslatmalar=config.ESLATMALAR[til],
         yonalishlar=config.royxat(config.YONALISHLAR, til),
@@ -170,9 +193,11 @@ def aloqa():
             "mavzu": (request.form.get("mavzu") or "").strip(),
             "xabar": (request.form.get("xabar") or "").strip(),
         }
-        if not form["ism"] or not email_togrimi(form["email"]) or len(form["xabar"]) < 10:
-            flash(config.MATN[til]["xato_forma"], "xato")
-            return render_template("aloqa.html", faol="aloqa", form=form)
+        enforce_rate("contact", 5, 600)
+        if (not 2 <= len(form["ism"]) <= 150 or not email_togrimi(form["email"])
+                or len(form["mavzu"]) > 200 or not 10 <= len(form["xabar"]) <= 5000):
+            flash(config.MATN[til]["max_message"], "xato")
+            return render_template("aloqa.html", faol="aloqa", form=form), 422
 
         models.xabar_qoshish(form["ism"], form["email"], form["mavzu"],
                              form["xabar"], til)
@@ -182,51 +207,112 @@ def aloqa():
     return render_template("aloqa.html", faol="aloqa", form={})
 
 
-def fayl_togrimi(fayl):
-    if not fayl or not fayl.filename:
-        return False
-    kengaytma = fayl.filename.rsplit(".", 1)[-1].lower() if "." in fayl.filename else ""
-    return kengaytma in config.Config.MAQOLA_KENGAYTMALAR
+def qabul_ochiq():
+    return (app.config["SUBMISSIONS_OPEN"]
+            and datetime.now(timezone.utc) <= datetime.fromisoformat(config.MUDDAT_ISO))
+
+
+def enforce_rate(scope, limit, seconds):
+    # Do not trust client-supplied forwarding headers. Configure the hosting proxy separately.
+    allowed, retry = models.rate_limit(scope, request.remote_addr or "unknown", limit, seconds)
+    if not allowed:
+        response = render_template("xato.html", kod=429, xabar=config.MATN[g.til]["rate_error"])
+        abort(Response(response, status=429, headers={"Retry-After": str(retry)}))
+
+
+def submission_error(form, errors, status=422):
+    til = g.til
+    return render_template("talablar.html", faol="talablar", form=form, errors=errors,
+                           talablar=config.TALABLAR[til], eslatmalar=config.ESLATMALAR[til],
+                           yonalishlar=config.royxat(config.YONALISHLAR, til)), status
+
+
+def tracking_url(paper):
+    if not paper["tracking_token"] or not app.config["PUBLIC_URL"]:
+        return ""
+    return app.config["PUBLIC_URL"] + url_for("maqola_holati", til=paper["til"], token=paper["tracking_token"])
 
 
 @app.route("/maqola-yuborish", defaults={"til": config.ASOSIY_TIL}, methods=["GET", "POST"])
 @app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/maqola-yuborish", methods=["GET", "POST"])
 def maqola_yuborish():
     til = g.til
-    if request.method == "POST":
-        form = {
-            "ism": (request.form.get("ism") or "").strip(),
-            "email": (request.form.get("email") or "").strip(),
-            "sarlavha": (request.form.get("sarlavha") or "").strip(),
-            "yonalish": (request.form.get("yonalish") or "").strip(),
-        }
-        fayl = request.files.get("fayl")
-
-        if (not form["ism"] or not form["sarlavha"]
-                or not email_togrimi(form["email"]) or not fayl_togrimi(fayl)):
-            flash(config.MATN[til]["xato_fayl"], "xato")
-            return redirect(url_for("talablar", til=til) + "#yuborish")
-
-        os.makedirs(app.config["MAQOLA_PAPKA"], exist_ok=True)
-        kengaytma = fayl.filename.rsplit(".", 1)[-1].lower()
-        fayl_nomi = f"{uuid.uuid4().hex}.{kengaytma}"
-        fayl.save(os.path.join(app.config["MAQOLA_PAPKA"], fayl_nomi))
-
-        models.maqola_qoshish(form["ism"], form["email"], form["sarlavha"], form["yonalish"],
-                              fayl_nomi, secure_filename(fayl.filename), til)
-        flash(config.MATN[til]["muvaffaqiyat_maqola"], "muvaffaqiyat")
+    if request.method == "GET":
         return redirect(url_for("talablar", til=til) + "#yuborish")
+    if not qabul_ochiq():
+        return submission_error({}, {"general": config.MATN[til]["closed"]}, 403)
+    enforce_rate("submission", 5, 600)
+    form = {key: (request.form.get(key) or "").strip()
+            for key in ("ism", "email", "sarlavha", "yonalish")}
+    form["email"] = form["email"].lower()
+    valid_tracks = {str(y["id"]) for y in config.YONALISHLAR}
+    # Accept legacy track names as well as the new stable IDs.
+    names = {y["nom"]: str(y["id"]) for y in config.royxat(config.YONALISHLAR, til)}
+    form["yonalish"] = names.get(form["yonalish"], form["yonalish"])
+    errors = {}
+    if not 2 <= len(form["ism"]) <= 150:
+        errors["ism"] = config.MATN[til]["field_error"]
+    if not email_togrimi(form["email"]):
+        errors["email"] = config.MATN[til]["field_error"]
+    if not 3 <= len(form["sarlavha"]) <= 300:
+        errors["sarlavha"] = config.MATN[til]["field_error"]
+    if form["yonalish"] and form["yonalish"] not in valid_tracks:
+        errors["yonalish"] = config.MATN[til]["field_error"]
+    fayl = request.files.get("fayl")
+    extension = fayl.filename.rsplit(".", 1)[-1].lower() if fayl and fayl.filename and "." in fayl.filename else ""
+    data = fayl.read() if fayl and extension in app.config["MAQOLA_KENGAYTMALAR"] else b""
+    if not validate_document(data, extension):
+        errors["fayl"] = config.MATN[til]["xato_fayl"]
+    if errors:
+        return submission_error(form, errors)
+    token = secrets.token_urlsafe(32)
+    filename = f"{uuid.uuid4().hex}.{extension}"
+    original = secure_filename(fayl.filename)[:200] or f"maqola.{extension}"
+    # Preserve a readable track label for existing admin/public views.
+    track = next((y["nom"] for y in config.royxat(config.YONALISHLAR, til) if str(y["id"]) == form["yonalish"]), "")
+    local_path = None
+    try:
+        if not app.config.get("DATABASE_URL"):
+            os.makedirs(app.config["MAQOLA_PAPKA"], exist_ok=True)
+            local_path = os.path.join(app.config["MAQOLA_PAPKA"], filename)
+            with open(local_path, "xb") as handle:
+                handle.write(data)
+        paper_id = models.maqola_qoshish(form["ism"], form["email"], form["sarlavha"], track,
+            filename, original, til, fayl_data=data, tracking_token=token,
+            file_hash=hashlib.sha256(data).hexdigest())
+        if paper_id is None:
+            if local_path:
+                os.remove(local_path)
+            return submission_error(form, {"general": config.MATN[til]["duplicate"]}, 409)
+    except Exception:
+        if local_path and os.path.exists(local_path):
+            os.remove(local_path)
+        raise
+    paper = models.maqola_topish(paper_id)
+    flash(config.MATN[til]["muvaffaqiyat_maqola"], "muvaffaqiyat")
+    if app.config["SMTP_HOST"]:
+        sent = notify_author(paper, tracking_url(paper), config.MATN[til])
+        flash(config.MATN[til]["mail_sent" if sent else "mail_failed"], "muvaffaqiyat" if sent else "xato")
+    return redirect(url_for("maqola_holati", token=token))
 
-    return redirect(url_for("talablar", til=til) + "#yuborish")
+
+@app.route("/maqola-holati/<token>", defaults={"til": config.ASOSIY_TIL})
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/maqola-holati/<token>")
+def maqola_holati(token):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
+        abort(404)
+    paper = models.maqola_token_bilan(token)
+    if paper is None:
+        abort(404)
+    return render_template("maqola_holati.html", paper=paper)
 
 
 @app.route("/maqolalar", defaults={"til": config.ASOSIY_TIL})
 @app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/maqolalar")
 def maqolalar_royxati():
-    return render_template(
-        "maqolalar.html", faol="maqolalar",
-        maqolalar=models.maqolalar_tasdiqlangan(),
-    )
+    search = request.args.get("q", "").strip()[:100]
+    listing = models.paginated("papers", request.args.get("page", 1, type=int), search, "tasdiqlangan")
+    return render_template("maqolalar.html", faol="maqolalar", maqolalar=listing["rows"], listing=listing, search=search)
 
 
 @app.route("/maqola/<int:maqola_id>/yuklab-olish")
@@ -234,6 +320,16 @@ def maqola_yuklab_olish(maqola_id):
     maqola = models.maqola_topish(maqola_id)
     if maqola is None or maqola["holat"] != "tasdiqlangan":
         return redirect(url_for("maqolalar_royxati"))
+    return maqola_javobi(maqola)
+
+
+def maqola_javobi(maqola):
+    if app.config.get("DATABASE_URL"):
+        data = models.maqola_fayli(maqola["id"])
+        if data is None:
+            abort(404)
+        return send_file(io.BytesIO(data), as_attachment=True,
+                         download_name=maqola["original_nomi"])
     return send_from_directory(
         app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
         as_attachment=True, download_name=maqola["original_nomi"],
@@ -252,18 +348,26 @@ def fayl_katta(e):
 @app.route("/admin/kirish", methods=["GET", "POST"])
 def admin_kirish():
     if request.method == "POST":
+        enforce_rate("login", 5, 900)
+        if not app.config["ADMIN_PAROL"] and not app.config["ADMIN_PASSWORD_HASH"]:
+            return render_template("xato.html", kod=503, xabar=config.MATN[g.til]["admin_unconfigured"]), 503
         login = request.form.get("login", "")
         parol = request.form.get("parol", "")
-        if login == app.config["ADMIN_LOGIN"] and parol == app.config["ADMIN_PAROL"]:
+        password_hash = app.config["ADMIN_PASSWORD_HASH"]
+        password_ok = (check_password_hash(password_hash, parol) if password_hash else
+                       hmac.compare_digest(parol.encode(), app.config["ADMIN_PAROL"].encode()))
+        if hmac.compare_digest(login.encode(), app.config["ADMIN_LOGIN"].encode()) and password_ok:
+            session.clear()
+            session.permanent = True
             session["admin"] = True
             return redirect(url_for("admin_panel"))
         flash("Login yoki parol noto'g'ri.", "xato")
     return render_template("admin_kirish.html")
 
 
-@app.route("/admin/chiqish")
+@app.route("/admin/chiqish", methods=["POST"])
 def admin_chiqish():
-    session.pop("admin", None)
+    session.clear()
     return redirect(url_for("bosh_sahifa"))
 
 
@@ -271,13 +375,15 @@ def admin_chiqish():
 @admin_kerak
 def admin_panel():
     faqat_yangi = request.args.get("holat") == "yangi"
-    return render_template(
-        "admin.html",
-        xabarlar=models.xabarlar_royxati(faqat_yangi),
-        stat=models.statistika(),
-        faqat_yangi=faqat_yangi,
-        maqolalar=models.maqolalar_royxati(),
-    )
+    search = request.args.get("q", "").strip()[:100]
+    status = request.args.get("maqola_holat", "")
+    if status not in models.HOLATLAR:
+        status = ""
+    messages = models.paginated("messages", request.args.get("xpage", 1, type=int), search, unread=faqat_yangi)
+    papers = models.paginated("papers", request.args.get("mpage", 1, type=int), search, status)
+    return render_template("admin.html", xabarlar=messages["rows"], stat=models.statistika(),
+        faqat_yangi=faqat_yangi, maqolalar=papers["rows"], messages=messages, papers=papers,
+        search=search, status=status)
 
 
 @app.route("/admin/maqola/<int:maqola_id>/yuklab-olish")
@@ -286,15 +392,14 @@ def admin_maqola_yuklab_olish(maqola_id):
     maqola = models.maqola_topish(maqola_id)
     if maqola is None:
         return redirect(url_for("admin_panel"))
-    return send_from_directory(
-        app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
-        as_attachment=True, download_name=maqola["original_nomi"],
-    )
+    return maqola_javobi(maqola)
 
 
 @app.route("/admin/maqola/<int:maqola_id>/tasdiqlash", methods=["POST"])
 @admin_kerak
 def admin_maqola_tasdiqlash(maqola_id):
+    if models.maqola_topish(maqola_id) is None:
+        abort(404)
     models.maqola_tasdiqlash(maqola_id)
     flash("Maqola tasdiqlandi va saytda ko'rina boshladi.", "muvaffaqiyat")
     return redirect(url_for("admin_panel"))
@@ -306,7 +411,7 @@ def admin_maqola_ochirish(maqola_id):
     maqola = models.maqola_topish(maqola_id)
     if maqola is not None:
         fayl_yoli = os.path.join(app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"])
-        if os.path.exists(fayl_yoli):
+        if not app.config.get("DATABASE_URL") and os.path.exists(fayl_yoli):
             os.remove(fayl_yoli)
         models.maqola_ochirish(maqola_id)
         flash("Maqola o'chirildi.", "muvaffaqiyat")
@@ -317,7 +422,7 @@ def admin_maqola_ochirish(maqola_id):
 @admin_kerak
 def admin_oqildi(xabar_id):
     models.xabar_oqildi(xabar_id)
-    return redirect(request.referrer or url_for("admin_panel"))
+    return redirect(url_for("admin_panel"))
 
 
 @app.route("/admin/ochirish/<int:xabar_id>", methods=["POST"])
@@ -336,8 +441,8 @@ def admin_eksport():
     yozuvchi = csv.writer(chiqish)
     yozuvchi.writerow(["ID", "Ism", "Email", "Mavzu", "Xabar", "Til", "Sana"])
     for q in models.xabarlar_royxati():
-        yozuvchi.writerow([q["id"], q["ism"], q["email"], q["mavzu"],
-                           q["xabar"], q["til"], q["yaratilgan"]])
+        values = [q["id"], q["ism"], q["email"], q["mavzu"], q["xabar"], q["til"], q["yaratilgan"]]
+        yozuvchi.writerow([csv_safe(value) for value in values])
 
     return Response(
         # Excel UTF-8'ni to'g'ri o'qishi uchun BOM qo'shamiz
@@ -363,6 +468,108 @@ def server_xatosi(e):
                            xabar=config.MATN[til]["xato_500"]), 500
 
 
+@app.route("/royxatdan-otish", defaults={"til": config.ASOSIY_TIL}, methods=["GET", "POST"])
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/royxatdan-otish", methods=["GET", "POST"])
+def royxatdan_otish():
+    opened = app.config["REGISTRATION_OPEN"] and datetime.now(timezone.utc) < datetime.fromisoformat(config.SANA_ISO)
+    form, error = {}, ""
+    if request.method == "POST":
+        if not opened:
+            return render_template("registration.html", opened=False, form={}, error=""), 403
+        enforce_rate("registration", 5, 600)
+        form = {key: request.form.get(key, "").strip() for key in ("ism", "email", "tashkilot", "format")}
+        form["email"] = form["email"].lower()
+        if (not 2 <= len(form["ism"]) <= 150 or not email_togrimi(form["email"])
+                or not 2 <= len(form["tashkilot"]) <= 200 or form["format"] not in ("in_person", "online")
+                or request.form.get("consent") != "yes"):
+            error = config.MATN[g.til]["registration_error"]
+            return render_template("registration.html", opened=opened, form=form, error=error), 422
+        models.qatnashchi_qoshish(form["ism"], form["email"], form["tashkilot"], form["format"], g.til)
+        # Same response for an existing email; do not disclose registrations.
+        flash(config.MATN[g.til]["registration_success"], "muvaffaqiyat")
+        return redirect(url_for("royxatdan_otish"))
+    return render_template("registration.html", opened=opened, form=form, error=error)
+
+
+@app.route("/admin/qatnashchilar")
+@admin_kerak
+def admin_qatnashchilar():
+    search = request.args.get("q", "").strip()[:100]
+    listing = models.paginated("participants", request.args.get("page", 1, type=int), search)
+    return render_template("participants.html", listing=listing, search=search)
+
+
+def csv_safe(value):
+    text = str(value or "")
+    return "'" + text if text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(("\t", "\r", "\n")) else value
+
+
+@app.route("/admin/maqola/<int:maqola_id>/holat", methods=["POST"])
+@admin_kerak
+def admin_maqola_holat(maqola_id):
+    paper = models.maqola_topish(maqola_id)
+    if paper is None:
+        abort(404)
+    status = request.form.get("holat", "")
+    note = request.form.get("izoh", "").strip()
+    if status not in models.HOLATLAR or len(note) > 3000:
+        abort(400)
+    changed = status != paper["holat"] or note != (paper["izoh"] or "")
+    models.maqola_holatini_ozgartirish(maqola_id, status, note)
+    if changed and app.config["SMTP_HOST"]:
+        paper = models.maqola_topish(maqola_id)
+        if not notify_author(paper, tracking_url(paper), config.MATN[paper["til"]]):
+            flash(config.MATN[g.til]["mail_failed"], "xato")
+    flash("Maqola holati saqlandi.", "muvaffaqiyat")
+    return redirect(url_for("admin_panel"))
+
+
+@app.errorhandler(CSRFError)
+def csrf_error(error):
+    return render_template("xato.html", kod=400, xabar=config.MATN[g.get("til", "uz")]["csrf_error"]), 400
+
+
+@app.after_request
+def secure_response(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    if request.path.startswith("/admin") or "maqola-holati/" in request.path:
+        response.headers["Cache-Control"] = "no-store, private"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        response.headers["Referrer-Policy"] = "no-referrer"
+    elif response.mimetype == "text/html":
+        # Forms include session-specific CSRF tokens.
+        response.headers["Cache-Control"] = "no-cache, private"
+    if request.is_secure:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return response
+
+
+@app.route("/taqvim.ics", defaults={"til": config.ASOSIY_TIL})
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/taqvim.ics")
+def taqvim():
+    def escape(value):
+        return value.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+    event = config.KONFERENSIYA[g.til]
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TYM//Conference 2026//UZ", "CALSCALE:GREGORIAN",
+             "BEGIN:VEVENT", "UID:tym-2026-12-15@conference", "DTSTAMP:20260101T000000Z",
+             "DTSTART;VALUE=DATE:20261215", "DTEND;VALUE=DATE:20261217",
+             "SUMMARY:" + escape(event["nom"]), "LOCATION:" + escape(event["manzil"]), "END:VEVENT", "END:VCALENDAR"]
+    # RFC 5545 folds lines at 75 octets without splitting UTF-8 characters.
+    folded = []
+    for line in lines:
+        part = ""
+        for char in line:
+            if len((part + char).encode("utf-8")) > 75:
+                folded.append(part)
+                part = " "
+            part += char
+        folded.append(part)
+    return Response("\r\n".join(folded) + "\r\n", mimetype="text/calendar",
+                    headers={"Content-Disposition": "attachment; filename=conference-2026.ics"})
+
+
 models.init_db(app)
 
 if __name__ == "__main__":
@@ -370,5 +577,5 @@ if __name__ == "__main__":
     # U yoqilganda xatolik sahifasida interaktiv konsol ochiladi — o'sha
     # konsol orqali serverda buyruq bajarsa bo'ladi. Shuning uchun sayt
     # tashqariga chiqarilganda DEBUG hech qachon yoqilmasligi kerak.
-    debug = os.environ.get("DEBUG", "1") == "1"
-    app.run(debug=debug, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    debug = os.environ.get("DEBUG", "0") == "1"
+    app.run(debug=debug, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", 5000)))

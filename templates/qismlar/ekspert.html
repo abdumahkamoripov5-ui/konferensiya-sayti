@@ -2,7 +2,7 @@
 <article class="ekspert">
   <div class="ekspert__avatar">
     <span class="ekspert__harf" aria-hidden="true">{{ e.harf }}</span>
-    {% if e.rasm %}
+    {% if rasm_bor(e.rasm) %}
     <img src="{{ url_for('static', filename='img/ekspertlar/' ~ e.rasm) }}"
          alt="{{ e.ism }}" loading="lazy" onerror="this.remove()">
     {% endif %}

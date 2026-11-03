@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block sarlavha %}{{ t.registration_title }}{% endblock %}
+{% block kontent %}
+<section class="bolim"><div class="konteyner">
+  <h1>{{ t.registration_title }} ({{ listing.total }})</h1>
+  <p><a href="{{ url_for('admin_panel') }}">{{ t.admin_panel }}</a></p>
+  <form method="get" class="filtr audit-filters">
+    <label for="participant-search">{{ t.search }}</label>
+    <input id="participant-search" type="search" name="q" value="{{ search }}" maxlength="100">
+    <button class="tugma tugma--kichik" type="submit">{{ t.search }}</button>
+  </form>
+  <div class="jadval-orash"><table class="jadval">
+    <thead><tr><th>#</th><th>{{ t.forma_ism }}</th><th>{{ t.forma_email }}</th><th>{{ t.organization }}</th><th>{{ t.attendance }}</th></tr></thead>
+    <tbody>{% for person in listing.rows %}<tr>
+      <td>{{ person.id }}</td><td>{{ person.ism }}</td><td>{{ person.email }}</td><td>{{ person.tashkilot }}</td><td>{{ t[person.format] }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if listing.pages > 1 %}<nav class="filtr" aria-label="{{ t.page }}">
+    {% if listing.page > 1 %}<a href="{{ url_for('admin_qatnashchilar', q=search, page=listing.page-1) }}">{{ t.previous }}</a>{% endif %}
+    <span>{{ t.page }} {{ listing.page }} / {{ listing.pages }}</span>
+    {% if listing.page < listing.pages %}<a href="{{ url_for('admin_qatnashchilar', q=search, page=listing.page+1) }}">{{ t.next }}</a>{% endif %}
+  </nav>{% endif %}
+</div></section>
+{% endblock %}

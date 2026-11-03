@@ -13,6 +13,11 @@
 
 <section class="bolim">
   <div class="konteyner">
+    <form method="get" class="filtr audit-filters">
+      <label for="paper-search">{{ t.search }}</label>
+      <input type="search" id="paper-search" name="q" value="{{ search }}" placeholder="{{ t.search_hint }}" maxlength="100">
+      <button class="tugma tugma--kichik" type="submit">{{ t.search }}</button>
+    </form>
     {% if maqolalar %}
     <div class="panjara panjara--3">
       {% for m in maqolalar %}
@@ -30,6 +35,11 @@
     {% else %}
     <p class="bosh-holat">{{ t.maqolalar_bosh_holat }}</p>
     {% endif %}
+    {% if listing.pages > 1 %}<nav class="filtr" aria-label="{{ t.page }}">
+      {% if listing.page > 1 %}<a href="{{ url_for('maqolalar_royxati', q=search, page=listing.page-1) }}">{{ t.previous }}</a>{% endif %}
+      <span>{{ t.page }} {{ listing.page }} / {{ listing.pages }}</span>
+      {% if listing.page < listing.pages %}<a href="{{ url_for('maqolalar_royxati', q=search, page=listing.page+1) }}">{{ t.next }}</a>{% endif %}
+    </nav>{% endif %}
   </div>
 </section>
 

@@ -14,25 +14,26 @@
 <section class="bolim">
   <div class="konteyner ikki-ustun">
 
-    <form class="forma" method="post" novalidate>
+    <form class="forma" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="maydon-guruh">
         <label for="ism">{{ t.forma_ism }}</label>
-        <input type="text" id="ism" name="ism" required value="{{ form.ism or '' }}">
+        <input type="text" id="ism" name="ism" maxlength="150" minlength="2" required value="{{ form.ism or '' }}">
       </div>
 
       <div class="maydon-guruh">
         <label for="email">{{ t.forma_email }}</label>
-        <input type="email" id="email" name="email" required value="{{ form.email or '' }}">
+        <input type="email" id="email" name="email" maxlength="254" required value="{{ form.email or '' }}">
       </div>
 
       <div class="maydon-guruh">
         <label for="mavzu">{{ t.forma_mavzu }} <span class="kichik">({{ t.forma_ixtiyoriy }})</span></label>
-        <input type="text" id="mavzu" name="mavzu" value="{{ form.mavzu or '' }}">
+        <input type="text" id="mavzu" name="mavzu" maxlength="200" value="{{ form.mavzu or '' }}">
       </div>
 
       <div class="maydon-guruh">
         <label for="xabar">{{ t.forma_xabar }}</label>
-        <textarea id="xabar" name="xabar" rows="6" required>{{ form.xabar or '' }}</textarea>
+        <textarea id="xabar" name="xabar" maxlength="5000" minlength="10" rows="6" required>{{ form.xabar or '' }}</textarea>
       </div>
 
       <button type="submit" class="tugma tugma--asosiy">{{ t.forma_yuborish }}</button>

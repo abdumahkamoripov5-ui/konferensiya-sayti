@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block sarlavha %}{{ t.registration_title }}{% endblock %}
+{% block kontent %}
+<section class="bolim"><div class="konteyner ikki-ustun">
+  <div>
+    <h1>{{ t.registration_title }}</h1>
+    <p>{{ konf.sana }} · {{ konf.joy }}</p>
+    {% if not opened %}<p class="eslatma">{{ t.registration_closed }}</p>{% else %}
+    {% if error %}<p class="flash flash--xato" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" class="forma">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="maydon-guruh"><label for="reg-name">{{ t.forma_ism }}</label>
+        <input id="reg-name" name="ism" required minlength="2" maxlength="150" autocomplete="name" value="{{ form.get('ism', '') }}"></div>
+      <div class="maydon-guruh"><label for="reg-email">{{ t.forma_email }}</label>
+        <input id="reg-email" name="email" type="email" required maxlength="254" autocomplete="email" value="{{ form.get('email', '') }}"></div>
+      <div class="maydon-guruh"><label for="reg-org">{{ t.organization }}</label>
+        <input id="reg-org" name="tashkilot" required minlength="2" maxlength="200" autocomplete="organization" value="{{ form.get('tashkilot', '') }}"></div>
+      <div class="maydon-guruh"><label for="reg-format">{{ t.attendance }}</label>
+        <select id="reg-format" name="format" required>
+          <option value=""></option>
+          <option value="in_person" {{ 'selected' if form.get('format') == 'in_person' }}>{{ t.in_person }}</option>
+          <option value="online" {{ 'selected' if form.get('format') == 'online' }}>{{ t.online }}</option>
+        </select></div>
+      <label class="consent"><input type="checkbox" name="consent" value="yes" required> {{ t.consent }}</label>
+      <button type="submit" class="tugma tugma--asosiy">{{ t.register }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div></section>
+{% endblock %}

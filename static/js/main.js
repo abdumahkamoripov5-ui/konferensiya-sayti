@@ -102,17 +102,29 @@
   var yuborilmoqda = document.body.dataset.yuborilmoqda || "...";
 
   document.querySelectorAll("form").forEach(function (forma) {
-    forma.addEventListener("submit", function () {
+    forma.addEventListener("submit", function (event) {
+      if (event.defaultPrevented) return;
       var tugma = forma.querySelector('button[type="submit"], button:not([type])');
       if (!tugma || tugma.disabled) return;
 
       // Brauzer forma ma'lumotini yig'ib bo'lgach ishga tushadi
       setTimeout(function () {
+        if (event.defaultPrevented) return;
+        tugma.dataset.oldText = tugma.textContent;
         tugma.disabled = true;
         if (!tugma.classList.contains("mayda-tugma")) {
           tugma.textContent = yuborilmoqda;
         }
       }, 0);
+    });
+  });
+
+  // Back/forward cache restores disabled controls as well as the document.
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll("button[data-old-text]").forEach(function (button) {
+      button.disabled = false;
+      button.textContent = button.dataset.oldText;
+      delete button.dataset.oldText;
     });
   });
 

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block sarlavha %}{{ t.tracking_title }}{% endblock %}
+{% block kontent %}
+<section class="bolim">
+  <div class="konteyner">
+    <h1>{{ t.tracking_title }}</h1>
+    <p class="eslatma">{{ t.tracking_save }}</p>
+    <p><a href="{{ request.path }}">{{ t.tracking_link }}</a></p>
+    <dl class="talab-royxat">
+      <div class="talab"><dt>{{ t.reference }}</dt><dd>{{ paper.id }}</dd></div>
+      <div class="talab"><dt>{{ t.forma_sarlavha }}</dt><dd>{{ paper.sarlavha }}</dd></div>
+      <div class="talab"><dt>{{ t.status }}</dt><dd>{{ t.holatlar.get(paper.holat, paper.holat) }}</dd></div>
+      {% if paper.izoh %}<div class="talab"><dt>{{ t.admin_note }}</dt><dd class="review-note">{{ paper.izoh }}</dd></div>{% endif %}
+    </dl>
+    {% if paper.holat == 'tasdiqlangan' %}
+    <a class="tugma tugma--asosiy" href="{{ url_for('maqola_yuklab_olish', maqola_id=paper.id) }}">{{ t.maqola_yuklab_olish }}</a>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
