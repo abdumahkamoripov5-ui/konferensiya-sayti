@@ -14,10 +14,12 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "turkiy-yozma-meros-2026")
 
+    DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
     DATABASE = os.path.join(BASE_DIR, "data", "konferensiya.db")
     MAQOLA_PAPKA = os.path.join(BASE_DIR, "data", "maqolalar")
     MAQOLA_KENGAYTMALAR = {"pdf", "doc", "docx"}
-    MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB
+    MAX_CONTENT_LENGTH = (4 if os.environ.get("VERCEL") else 20) * 1024 * 1024
 
     ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
     ADMIN_PAROL = os.environ.get("ADMIN_PAROL", "admin123")
@@ -615,9 +617,9 @@ MATN = {
         "maqola_forma_sarlavha": "Maqolani saytga yuklash",
         "forma_sarlavha": "Maqola sarlavhasi",
         "forma_yonalish": "Ilmiy yo'nalish",
-        "forma_fayl": "Maqola fayli (PDF, DOC, DOCX — 20 MB gacha)",
+        "forma_fayl": "Maqola fayli (PDF, DOC, DOCX — {hajm} MB gacha)",
         "forma_maqola_yuborish": "Faylni yuborish",
-        "xato_fayl": "Iltimos, ism, sarlavha, email va to'g'ri formatdagi faylni (PDF/DOC/DOCX, 20 MB gacha) to'ldiring.",
+        "xato_fayl": "Iltimos, ism, sarlavha, email va to'g'ri formatdagi faylni (PDF/DOC/DOCX, {hajm} MB gacha) to'ldiring.",
         "muvaffaqiyat_maqola": "Maqolangiz qabul qilindi. Admin tasdiqlagach saytda ko'rinadi. Rahmat!",
         # maqolalar (ochiq sahifa)
         "maqolalar_nishon": "Maqolalar",
@@ -736,9 +738,9 @@ MATN = {
         "maqola_forma_sarlavha": "Upload your paper",
         "forma_sarlavha": "Paper title",
         "forma_yonalish": "Research track",
-        "forma_fayl": "Paper file (PDF, DOC, DOCX — up to 20 MB)",
+        "forma_fayl": "Paper file (PDF, DOC, DOCX — up to {hajm} MB)",
         "forma_maqola_yuborish": "Upload file",
-        "xato_fayl": "Please provide your name, title, email and a valid file (PDF/DOC/DOCX, up to 20 MB).",
+        "xato_fayl": "Please provide your name, title, email and a valid file (PDF/DOC/DOCX, up to {hajm} MB).",
         "muvaffaqiyat_maqola": "Your paper has been received. It will appear on the site once approved. Thank you!",
         "maqolalar_nishon": "Papers",
         "maqolalar_sahifa_sarlavha": "Approved papers",
@@ -851,9 +853,9 @@ MATN = {
         "maqola_forma_sarlavha": "Bildirinizi yükleyin",
         "forma_sarlavha": "Bildiri başlığı",
         "forma_yonalish": "Bilimsel alan",
-        "forma_fayl": "Bildiri dosyası (PDF, DOC, DOCX — 20 MB'a kadar)",
+        "forma_fayl": "Bildiri dosyası (PDF, DOC, DOCX — {hajm} MB'a kadar)",
         "forma_maqola_yuborish": "Dosyayı gönder",
-        "xato_fayl": "Lütfen adınızı, başlığı, e-postanızı ve geçerli bir dosya (PDF/DOC/DOCX, 20 MB'a kadar) seçin.",
+        "xato_fayl": "Lütfen adınızı, başlığı, e-postanızı ve geçerli bir dosya (PDF/DOC/DOCX, {hajm} MB'a kadar) seçin.",
         "muvaffaqiyat_maqola": "Bildiriniz alındı. Onaylandıktan sonra sitede görünecektir. Teşekkür ederiz!",
         "maqolalar_nishon": "Bildiriler",
         "maqolalar_sahifa_sarlavha": "Onaylanmış bildiriler",
@@ -912,3 +914,9 @@ def mahalliy(element, til):
 def royxat(elementlar, til):
     """Ro'yxatdagi har bir elementni `mahalliy()` orqali o'tkazadi."""
     return [mahalliy(e, til) for e in elementlar]
+
+
+# Vercel so‘rov chegarasiga mos fayl hajmini ko‘rsatish.
+for _matn in MATN.values():
+    for _kalit in ("forma_fayl", "xato_fayl"):
+        _matn[_kalit] = _matn[_kalit].format(hajm=4 if os.environ.get("VERCEL") else 20)

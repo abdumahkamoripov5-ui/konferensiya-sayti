@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ma'lumotlar bazasi bilan ishlash (sqlite3, tashqi kutubxonasiz).
+"""Ma'lumotlar bazasi: lokal SQLite yoki DATABASE_URL orqali PostgreSQL.
 
 Ikkita jadval: aloqa xabarlari va saytga yuklangan maqolalar (admin
 tasdiqlagandan keyingina jamoatchilikka ochiq bo'ladi).
@@ -43,6 +43,16 @@ CREATE TABLE IF NOT EXISTS maqolalar (
 def get_db():
     """So'rov davomida yagona ulanishni qaytaradi."""
     if "db" not in g:
+        if current_app.config.get("DATABASE_URL"):
+            import psycopg
+            from psycopg.rows import dict_row
+            g.db = psycopg.connect(
+                current_app.config["DATABASE_URL"], row_factory=dict_row,
+                prepare_threshold=None, sslmode="require", connect_timeout=10,
+            )
+            return g.db
+        if os.environ.get("VERCEL"):
+            raise RuntimeError("Vercelda DATABASE_URL muhit o'zgaruvchisini sozlang.")
         yol = current_app.config["DATABASE"]
         os.makedirs(os.path.dirname(yol), exist_ok=True)
         g.db = sqlite3.connect(yol, detect_types=sqlite3.PARSE_DECLTYPES)
@@ -62,6 +72,17 @@ def init_db(app):
     app.teardown_appcontext(close_db)
     with app.app_context():
         db = get_db()
+        if app.config.get("DATABASE_URL"):
+            sxema = SXEMA.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+            for statement in sxema.split(";"):
+                if statement.strip():
+                    db.execute(statement)
+            db.execute("ALTER TABLE maqolalar ADD COLUMN IF NOT EXISTS fayl_data BYTEA")
+            # Supabase Data API orqali anonim kirishni yopish.
+            for jadval in ("xabarlar", "maqolalar"):
+                db.execute(f"ALTER TABLE {jadval} ENABLE ROW LEVEL SECURITY")
+            db.commit()
+            return
         db.executescript(SXEMA)
         # Eskirgan sxemadan qolgan bazalarda `til` ustuni bo'lmasligi mumkin
         ustunlar = {q["name"] for q in db.execute("PRAGMA table_info(xabarlar)")}
@@ -75,11 +96,18 @@ def init_db(app):
         db.commit()
 
 
+def execute(db, query, params=()):
+    """SQLite parametrlarini PostgreSQL uchun moslash."""
+    if current_app.config.get("DATABASE_URL"):
+        query = query.replace("?", "%s")
+    return db.execute(query, params)
+
+
 # --- Xabarlar --------------------------------------------------------------
 
 def xabar_qoshish(ism, email, mavzu, xabar, til="uz"):
     db = get_db()
-    db.execute(
+    execute(db,
         """INSERT INTO xabarlar (ism, email, mavzu, xabar, til, yaratilgan)
            VALUES (?, ?, ?, ?, ?, ?)""",
         (ism, email, mavzu, xabar, til, datetime.now().strftime("%Y-%m-%d %H:%M")),
@@ -90,21 +118,21 @@ def xabar_qoshish(ism, email, mavzu, xabar, til="uz"):
 def xabarlar_royxati(faqat_oqilmagan=False):
     db = get_db()
     if faqat_oqilmagan:
-        return db.execute(
+        return execute(db,
             "SELECT * FROM xabarlar WHERE oqilgan = 0 ORDER BY id DESC"
         ).fetchall()
-    return db.execute("SELECT * FROM xabarlar ORDER BY id DESC").fetchall()
+    return execute(db, "SELECT * FROM xabarlar ORDER BY id DESC").fetchall()
 
 
 def xabar_oqildi(xabar_id):
     db = get_db()
-    db.execute("UPDATE xabarlar SET oqilgan = 1 WHERE id = ?", (xabar_id,))
+    execute(db, "UPDATE xabarlar SET oqilgan = 1 WHERE id = ?", (xabar_id,))
     db.commit()
 
 
 def xabar_ochirish(xabar_id):
     db = get_db()
-    db.execute("DELETE FROM xabarlar WHERE id = ?", (xabar_id,))
+    execute(db, "DELETE FROM xabarlar WHERE id = ?", (xabar_id,))
     db.commit()
 
 
@@ -112,8 +140,8 @@ def xabar_ochirish(xabar_id):
 
 def statistika():
     db = get_db()
-    jami = db.execute("SELECT COUNT(*) AS n FROM xabarlar").fetchone()["n"]
-    oqilmagan = db.execute(
+    jami = execute(db, "SELECT COUNT(*) AS n FROM xabarlar").fetchone()["n"]
+    oqilmagan = execute(db,
         "SELECT COUNT(*) AS n FROM xabarlar WHERE oqilgan = 0"
     ).fetchone()["n"]
     return {"jami": jami, "oqilmagan": oqilmagan}
@@ -121,9 +149,17 @@ def statistika():
 
 # --- Maqolalar ---------------------------------------------------------------
 
-def maqola_qoshish(ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til="uz"):
+def maqola_qoshish(ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til="uz", fayl_data=None):
     db = get_db()
-    db.execute(
+    if current_app.config.get("DATABASE_URL"):
+        execute(db, """INSERT INTO maqolalar
+            (ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til, yaratilgan, fayl_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til,
+             datetime.now().strftime("%Y-%m-%d %H:%M"), fayl_data))
+        db.commit()
+        return
+    execute(db,
         """INSERT INTO maqolalar (ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til, yaratilgan)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til,
@@ -134,28 +170,34 @@ def maqola_qoshish(ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til
 
 def maqolalar_royxati():
     db = get_db()
-    return db.execute("SELECT * FROM maqolalar ORDER BY id DESC").fetchall()
+    return execute(db, "SELECT id, ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til, holat, yaratilgan FROM maqolalar ORDER BY id DESC").fetchall()
 
 
 def maqolalar_tasdiqlangan():
     db = get_db()
-    return db.execute(
-        "SELECT * FROM maqolalar WHERE holat = 'tasdiqlangan' ORDER BY id DESC"
+    return execute(db,
+        "SELECT id, ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til, holat, yaratilgan FROM maqolalar WHERE holat = 'tasdiqlangan' ORDER BY id DESC"
     ).fetchall()
 
 
 def maqola_topish(maqola_id):
     db = get_db()
-    return db.execute("SELECT * FROM maqolalar WHERE id = ?", (maqola_id,)).fetchone()
+    return execute(db, "SELECT id, ism, email, sarlavha, yonalish, fayl_nomi, original_nomi, til, holat, yaratilgan FROM maqolalar WHERE id = ?", (maqola_id,)).fetchone()
 
 
 def maqola_tasdiqlash(maqola_id):
     db = get_db()
-    db.execute("UPDATE maqolalar SET holat = 'tasdiqlangan' WHERE id = ?", (maqola_id,))
+    execute(db, "UPDATE maqolalar SET holat = 'tasdiqlangan' WHERE id = ?", (maqola_id,))
     db.commit()
 
 
 def maqola_ochirish(maqola_id):
     db = get_db()
-    db.execute("DELETE FROM maqolalar WHERE id = ?", (maqola_id,))
+    execute(db, "DELETE FROM maqolalar WHERE id = ?", (maqola_id,))
     db.commit()
+
+
+def maqola_fayli(maqola_id):
+    db = get_db()
+    row = execute(db, "SELECT fayl_data FROM maqolalar WHERE id = ?", (maqola_id,)).fetchone()
+    return bytes(row["fayl_data"]) if row and row["fayl_data"] is not None else None

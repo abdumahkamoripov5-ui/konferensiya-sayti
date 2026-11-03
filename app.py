@@ -13,7 +13,7 @@ import uuid
 from functools import wraps
 
 from flask import (Flask, flash, g, redirect, render_template, request,
-                   Response, send_from_directory, session, url_for)
+                   Response, abort, send_file, send_from_directory, session, url_for)
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -207,13 +207,17 @@ def maqola_yuborish():
             flash(config.MATN[til]["xato_fayl"], "xato")
             return redirect(url_for("talablar", til=til) + "#yuborish")
 
-        os.makedirs(app.config["MAQOLA_PAPKA"], exist_ok=True)
         kengaytma = fayl.filename.rsplit(".", 1)[-1].lower()
         fayl_nomi = f"{uuid.uuid4().hex}.{kengaytma}"
-        fayl.save(os.path.join(app.config["MAQOLA_PAPKA"], fayl_nomi))
+        fayl_data = None
+        if app.config.get("DATABASE_URL"):
+            fayl_data = fayl.read()
+        else:
+            os.makedirs(app.config["MAQOLA_PAPKA"], exist_ok=True)
+            fayl.save(os.path.join(app.config["MAQOLA_PAPKA"], fayl_nomi))
 
         models.maqola_qoshish(form["ism"], form["email"], form["sarlavha"], form["yonalish"],
-                              fayl_nomi, secure_filename(fayl.filename), til)
+                              fayl_nomi, secure_filename(fayl.filename), til, fayl_data=fayl_data)
         flash(config.MATN[til]["muvaffaqiyat_maqola"], "muvaffaqiyat")
         return redirect(url_for("talablar", til=til) + "#yuborish")
 
@@ -234,6 +238,16 @@ def maqola_yuklab_olish(maqola_id):
     maqola = models.maqola_topish(maqola_id)
     if maqola is None or maqola["holat"] != "tasdiqlangan":
         return redirect(url_for("maqolalar_royxati"))
+    return maqola_javobi(maqola)
+
+
+def maqola_javobi(maqola):
+    if app.config.get("DATABASE_URL"):
+        data = models.maqola_fayli(maqola["id"])
+        if data is None:
+            abort(404)
+        return send_file(io.BytesIO(data), as_attachment=True,
+                         download_name=maqola["original_nomi"])
     return send_from_directory(
         app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
         as_attachment=True, download_name=maqola["original_nomi"],
@@ -286,10 +300,7 @@ def admin_maqola_yuklab_olish(maqola_id):
     maqola = models.maqola_topish(maqola_id)
     if maqola is None:
         return redirect(url_for("admin_panel"))
-    return send_from_directory(
-        app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"],
-        as_attachment=True, download_name=maqola["original_nomi"],
-    )
+    return maqola_javobi(maqola)
 
 
 @app.route("/admin/maqola/<int:maqola_id>/tasdiqlash", methods=["POST"])
@@ -306,7 +317,7 @@ def admin_maqola_ochirish(maqola_id):
     maqola = models.maqola_topish(maqola_id)
     if maqola is not None:
         fayl_yoli = os.path.join(app.config["MAQOLA_PAPKA"], maqola["fayl_nomi"])
-        if os.path.exists(fayl_yoli):
+        if not app.config.get("DATABASE_URL") and os.path.exists(fayl_yoli):
             os.remove(fayl_yoli)
         models.maqola_ochirish(maqola_id)
         flash("Maqola o'chirildi.", "muvaffaqiyat")
