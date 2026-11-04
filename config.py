@@ -55,7 +55,12 @@ class Config:
     DATABASE = os.path.join(BASE_DIR, "data", "konferensiya.db")
     MAQOLA_PAPKA = os.path.join(BASE_DIR, "data", "maqolalar")
     MAQOLA_KENGAYTMALAR = {"pdf", "doc", "docx"}
-    MAX_CONTENT_LENGTH = (4 if os.environ.get("VERCEL") else 20) * 1024 * 1024
+    MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "50"))
+    if MAX_UPLOAD_MB < 1:
+        raise ValueError("MAX_UPLOAD_MB must be a positive integer.")
+    MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+    # Multipart fields and headers need room beyond the file itself.
+    MAX_CONTENT_LENGTH = MAX_UPLOAD_BYTES + 1024 * 1024
 
     ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
     ADMIN_PAROL = os.environ.get("ADMIN_PAROL", "")
@@ -963,10 +968,10 @@ def royxat(elementlar, til):
     return [mahalliy(e, til) for e in elementlar]
 
 
-# Vercel so‘rov chegarasiga mos fayl hajmini ko‘rsatish.
+# Fayl hajmini serverdagi haqiqiy sozlama bilan bir xil ko'rsatish.
 for _matn in MATN.values():
     for _kalit in ("forma_fayl", "xato_fayl"):
-        _matn[_kalit] = _matn[_kalit].format(hajm=4 if os.environ.get("VERCEL") else 20)
+        _matn[_kalit] = _matn[_kalit].format(hajm=Config.MAX_UPLOAD_MB)
 
 # Additional submission and administration controls, in all supported languages.
 YANGI_MATN = {

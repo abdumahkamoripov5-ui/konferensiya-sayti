@@ -113,8 +113,15 @@ deploy kerak.
 PostgreSQL'da saqlanadi; jadvallar avtomatik yaratiladi. Supabase Data API'da
 jadvallarga anonim kirish RLS bilan yopiladi. Fayllar faqat admin yoki maqola
 tasdiqlangandan keyin ochiq yuklab olish yo'li orqali olinadi.
-Vercelda butun yuklash so'rovi chegarasi 4 MiB (forma bilan birga).
-Kattaroq fayllar uchun brauzerdan bevosita object storage'ga yuklash kerak.
+Maqola fayli chegarasi sukut bo'yicha **50 MB** (50 × 1024 × 1024 bayt).
+`MAX_UPLOAD_MB=100` kabi muhit o'zgaruvchisi bilan uni oshirish mumkin.
+Forma maydonlari uchun so'rov chegarasida qo'shimcha 1 MiB joy ajratiladi.
+Reverse proxy ishlatilsa, uning so'rov chegarasini ham moslang
+(masalan, Nginx uchun 50 MB faylga `client_max_body_size 51m;`).
+Vercel Functions so'rov va javob hajmini 4,5 MB bilan cheklaydi; ilova
+sozlamasi bu platforma chegarasini oshirmaydi. Vercelda katta fayllar uchun
+brauzerdan bevosita object storage'ga yuklash/yuklab olishni joriy qilish
+yoki Flask ilovasini katta so'rovlarni qo'llaydigan serverga joylash kerak.
 Lokal muhitda DATABASE_URL bo'lmasa SQLite va lokal fayllar ishlaydi.
 Mavjud PythonAnywhere/SQLite ma'lumotlari avtomatik ko'chirilmaydi.
 

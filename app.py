@@ -82,7 +82,9 @@ def til_havolalari():
 # --- Yordamchi funksiyalar -------------------------------------------------
 
 def email_togrimi(email):
-    return len(email or "") <= 254 and bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email or ""))
+    return (len(email or "") <= 254
+            and not any(ord(char) < 32 or ord(char) == 127 for char in (email or ""))
+            and bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email or "")))
 
 
 def admin_kerak(f):
@@ -260,7 +262,9 @@ def maqola_yuborish():
         errors["yonalish"] = config.MATN[til]["field_error"]
     fayl = request.files.get("fayl")
     extension = fayl.filename.rsplit(".", 1)[-1].lower() if fayl and fayl.filename and "." in fayl.filename else ""
-    data = fayl.read() if fayl and extension in app.config["MAQOLA_KENGAYTMALAR"] else b""
+    data = fayl.read(app.config["MAX_UPLOAD_BYTES"] + 1) if fayl and extension in app.config["MAQOLA_KENGAYTMALAR"] else b""
+    if len(data) > app.config["MAX_UPLOAD_BYTES"]:
+        raise RequestEntityTooLarge()
     if not validate_document(data, extension):
         errors["fayl"] = config.MATN[til]["xato_fayl"]
     if errors:
@@ -339,8 +343,12 @@ def maqola_javobi(maqola):
 @app.errorhandler(RequestEntityTooLarge)
 def fayl_katta(e):
     til = g.get("til", config.ASOSIY_TIL)
-    flash(config.MATN[til]["xato_fayl"], "xato")
-    return redirect(url_for("talablar", til=til) + "#yuborish")
+    messages = {
+        "uz": "Yuborilgan forma yoki fayl hajmi ruxsat etilgan chegaradan oshdi. Hajmni kamaytirib, qayta yuboring.",
+        "en": "The submitted form or file exceeds the allowed size. Reduce its size and try again.",
+        "tr": "Gönderilen form veya dosya izin verilen boyutu aşıyor. Boyutu küçültüp tekrar deneyin.",
+    }
+    return render_template("xato.html", kod=413, xabar=messages[til]), 413
 
 
 # --- Admin panel -----------------------------------------------------------
@@ -534,7 +542,8 @@ def secure_response(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
-    if request.path.startswith("/admin") or "maqola-holati/" in request.path:
+    if (request.path.startswith("/admin") or "maqola-holati/" in request.path
+            or request.endpoint == "maqola_yuklab_olish"):
         response.headers["Cache-Control"] = "no-store, private"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
         response.headers["Referrer-Policy"] = "no-referrer"
