@@ -140,7 +140,7 @@ Verceldan tashqarida maqola fayli chegarasi sukut bo'yicha **50 MiB**.
 Forma maydonlari uchun so'rov chegarasida qo'shimcha 1 MiB joy ajratiladi.
 Reverse proxy ishlatilsa, uning so'rov chegarasini ham moslang
 (masalan, Nginx uchun 50 MiB faylga `client_max_body_size 51m;`).
-Vercel Functions so'rov va javob hajmini 4,5 MB bilan cheklaydi; ilova
+Vercel Functions so'rov va javob hajmini 4,5 MB bilan cheklaydi.
 Vercelda fayl chegarasi avtomatik ko'pi bilan **4 MiB** bo'ladi va forma bilan
 birgalikdagi so'rov chegarasi **4 500 000 bayt** bilan cheklanadi.
 `MAX_UPLOAD_MB` bundan kichik chegara belgilashi mumkin; katta qiymat
