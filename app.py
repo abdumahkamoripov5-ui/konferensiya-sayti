@@ -13,6 +13,7 @@ import uuid
 import secrets
 import hashlib
 import hmac
+from xml.etree.ElementTree import Element, SubElement, tostring
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
@@ -82,7 +83,9 @@ def til_havolalari():
 # --- Yordamchi funksiyalar -------------------------------------------------
 
 def email_togrimi(email):
-    return len(email or "") <= 254 and bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email or ""))
+    return (len(email or "") <= 254
+            and not any(ord(char) < 32 or ord(char) == 127 for char in (email or ""))
+            and bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email or "")))
 
 
 def admin_kerak(f):
@@ -110,6 +113,8 @@ def umumiy_kontekst():
         "chorlov_fayl": config.CHORLOV_FAYL.get(til),
         "admin_kirgan": session.get("admin", False),
         "qabul_ochiq": qabul_ochiq(),
+        "max_upload_bytes": app.config["MAX_UPLOAD_BYTES"],
+        "public_origin": app.config["PUBLIC_URL"] or request.url_root.rstrip("/"),
         "rasm_bor": lambda name: bool(name) and (Path(app.static_folder) / "img" / "ekspertlar" / name).is_file(),
     }
 
@@ -260,7 +265,9 @@ def maqola_yuborish():
         errors["yonalish"] = config.MATN[til]["field_error"]
     fayl = request.files.get("fayl")
     extension = fayl.filename.rsplit(".", 1)[-1].lower() if fayl and fayl.filename and "." in fayl.filename else ""
-    data = fayl.read() if fayl and extension in app.config["MAQOLA_KENGAYTMALAR"] else b""
+    data = fayl.read(app.config["MAX_UPLOAD_BYTES"] + 1) if fayl and extension in app.config["MAQOLA_KENGAYTMALAR"] else b""
+    if len(data) > app.config["MAX_UPLOAD_BYTES"]:
+        raise RequestEntityTooLarge()
     if not validate_document(data, extension):
         errors["fayl"] = config.MATN[til]["xato_fayl"]
     if errors:
@@ -339,8 +346,12 @@ def maqola_javobi(maqola):
 @app.errorhandler(RequestEntityTooLarge)
 def fayl_katta(e):
     til = g.get("til", config.ASOSIY_TIL)
-    flash(config.MATN[til]["xato_fayl"], "xato")
-    return redirect(url_for("talablar", til=til) + "#yuborish")
+    messages = {
+        "uz": "Yuborilgan forma yoki fayl hajmi ruxsat etilgan chegaradan oshdi. Hajmni kamaytirib, qayta yuboring.",
+        "en": "The submitted form or file exceeds the allowed size. Reduce its size and try again.",
+        "tr": "Gönderilen form veya dosya izin verilen boyutu aşıyor. Boyutu küçültüp tekrar deneyin.",
+    }
+    return render_template("xato.html", kod=413, xabar=messages[til]), 413
 
 
 # --- Admin panel -----------------------------------------------------------
@@ -534,7 +545,8 @@ def secure_response(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
-    if request.path.startswith("/admin") or "maqola-holati/" in request.path:
+    if (request.path.startswith("/admin") or "maqola-holati/" in request.path
+            or request.endpoint == "maqola_yuklab_olish"):
         response.headers["Cache-Control"] = "no-store, private"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -568,6 +580,39 @@ def taqvim():
         folded.append(part)
     return Response("\r\n".join(folded) + "\r\n", mimetype="text/calendar",
                     headers={"Content-Disposition": "attachment; filename=conference-2026.ics"})
+
+
+@app.route("/dastur", defaults={"til": config.ASOSIY_TIL})
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/dastur")
+def dastur():
+    return render_template("dastur.html", faol="dastur")
+
+
+@app.route("/maxfiylik", defaults={"til": config.ASOSIY_TIL})
+@app.route(f"/<any({QOSHIMCHA_TILLAR}):til>/maxfiylik")
+def maxfiylik():
+    return render_template("maxfiylik.html", faol="maxfiylik")
+
+
+@app.route("/sitemap.xml")
+def sitemap():
+    root = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+    origin = app.config["PUBLIC_URL"] or request.url_root.rstrip("/")
+    for language in config.TILLAR:
+        for endpoint in ("bosh_sahifa", "haqida", "yonalishlar", "kengash", "talablar",
+                         "aloqa", "maqolalar_royxati", "royxatdan_otish", "dastur", "maxfiylik"):
+            SubElement(SubElement(root, "url"), "loc").text = origin + url_for(endpoint, til=language)
+    return Response(tostring(root, encoding="utf-8", xml_declaration=True), mimetype="application/xml")
+
+
+@app.route("/robots.txt")
+def robots():
+    origin = app.config["PUBLIC_URL"] or request.url_root.rstrip("/")
+    lines = ["User-agent: *", "Disallow: /admin", "Disallow: /maqola/"]
+    for prefix in ("", "/en", "/tr"):
+        lines.append(f"Disallow: {prefix}/maqola-holati/")
+    lines.append(f"Sitemap: {origin}/sitemap.xml")
+    return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
 
 models.init_db(app)

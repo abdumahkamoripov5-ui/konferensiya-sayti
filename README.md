@@ -11,6 +11,25 @@ Barcha ma'lumot tashkiliy qo'mita tarqatgan chorlovdan olingan
 
 ## Ishga tushirish
 
+Windows PowerShell uchun alohida muhit:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe app.py
+```
+
+Test: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`.
+Ixtiyoriy brauzer testi: `pip install playwright`, `python -m playwright install chromium`,
+so'ng sayt ishlab turganda `python tests/browser_smoke.py` (shu virtual muhitda).
+Mavjud Chromium ishlatilsa `BROWSER_EXECUTABLE` bilan uning yo'lini ko'rsating.
+Global Python kutubxonalaridan keladigan versiya ziddiyatlarini oldini olish
+uchun sayt va testlarni shu muhitda ishga tushiring.
+
+Loyihadagi `.env` fayli avtomatik yuklanadi, jumladan `python app.py` va
+WSGI orqali ishga tushirilganda. Server muhitida berilgan o'zgaruvchilar
+`.env` qiymatlaridan ustun turadi. Sozlamalarni o'zgartirgach serverni qayta ishga tushiring.
+
 ```bash
 cd /mnt/c/Users/Sarvarbek/projects/konferensiya
 pip install -r requirements.txt
@@ -44,6 +63,9 @@ nusxasiga olib boradi.
 | `/kengash` | Ilmiy kengash — xalqaro va mahalliy ekspertlar, rasm va lavozimi bilan |
 | `/talablar` | Maqola talablari + maqola qayerga yuboriladi |
 | `/aloqa` | Aloqa formasi va tashkiliy qo'mita manzili |
+| `/dastur` | Dastur holati, joy va onlayn qatnashish bo'yicha ma'lumot |
+| `/maxfiylik` | Saqlanadigan shaxsiy ma'lumotlar va murojaat qilish tartibi |
+| `/sitemap.xml`, `/robots.txt` | Qidiruv tizimlari uchun ochiq sahifalar |
 | `/admin` | Kelgan aloqa xabarlari (login talab qiladi) |
 
 Maqolalar `/talablar#yuborish` formasi orqali PDF/DOC/DOCX formatida yoki
@@ -113,8 +135,18 @@ deploy kerak.
 PostgreSQL'da saqlanadi; jadvallar avtomatik yaratiladi. Supabase Data API'da
 jadvallarga anonim kirish RLS bilan yopiladi. Fayllar faqat admin yoki maqola
 tasdiqlangandan keyin ochiq yuklab olish yo'li orqali olinadi.
-Vercelda butun yuklash so'rovi chegarasi 4 MiB (forma bilan birga).
-Kattaroq fayllar uchun brauzerdan bevosita object storage'ga yuklash kerak.
+Verceldan tashqarida maqola fayli chegarasi sukut bo'yicha **50 MiB**.
+`MAX_UPLOAD_MB=4.5` kabi muhit o'zgaruvchisi bilan ham belgilanadi.
+Forma maydonlari uchun so'rov chegarasida qo'shimcha 1 MiB joy ajratiladi.
+Reverse proxy ishlatilsa, uning so'rov chegarasini ham moslang
+(masalan, Nginx uchun 50 MiB faylga `client_max_body_size 51m;`).
+Vercel Functions so'rov va javob hajmini 4,5 MB bilan cheklaydi; ilova
+Vercelda fayl chegarasi avtomatik ko'pi bilan **4 MiB** bo'ladi va forma bilan
+birgalikdagi so'rov chegarasi **4 500 000 bayt** bilan cheklanadi.
+`MAX_UPLOAD_MB` bundan kichik chegara belgilashi mumkin; katta qiymat
+platforma chegarasini oshirmaydi. Vercelda katta fayllar uchun
+brauzerdan bevosita object storage'ga yuklash/yuklab olishni joriy qilish
+yoki Flask ilovasini katta so'rovlarni qo'llaydigan serverga joylash kerak.
 Lokal muhitda DATABASE_URL bo'lmasa SQLite va lokal fayllar ishlaydi.
 Mavjud PythonAnywhere/SQLite ma'lumotlari avtomatik ko'chirilmaydi.
 
@@ -137,6 +169,11 @@ Mavjud PythonAnywhere/SQLite ma'lumotlari avtomatik ko'chirilmaydi.
 - Fayl tuzilishini tekshirish antivirus tekshiruvi o'rnini bosmaydi.
 
 ### Email xabarnomalari (ixtiyoriy)
+
+`PUBLIC_URL` ni saytning haqiqiy HTTPS manziliga sozlang. Canonical,
+Open Graph va sitemap shu manzildan foydalanadi. Dasturdagi sessiyalar va
+onlayn ulanish havolasi tasdiqlangach `templates/dastur.html` va `config.py`
+orqali qo'shiladi; hozircha sahifada e'lon qilinmagani ochiq ko'rsatiladi.
 
 `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
 va `PUBLIC_URL=https://sizning-domeningiz` ni sozlang. 465-port uchun `SMTP_SSL=1`.

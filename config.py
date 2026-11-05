@@ -7,10 +7,13 @@ shablonlarga tegilmaydi.
 """
 
 import os
+import math
 import secrets
 import tempfile
+from dotenv import load_dotenv
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"), override=False)
 
 
 def session_key():
@@ -55,7 +58,18 @@ class Config:
     DATABASE = os.path.join(BASE_DIR, "data", "konferensiya.db")
     MAQOLA_PAPKA = os.path.join(BASE_DIR, "data", "maqolalar")
     MAQOLA_KENGAYTMALAR = {"pdf", "doc", "docx"}
-    MAX_CONTENT_LENGTH = (4 if os.environ.get("VERCEL") else 20) * 1024 * 1024
+    MAX_UPLOAD_MB = float(os.environ.get("MAX_UPLOAD_MB", "50"))
+    if not math.isfinite(MAX_UPLOAD_MB) or MAX_UPLOAD_MB <= 0:
+        raise ValueError("MAX_UPLOAD_MB must be a positive finite number.")
+    MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)
+    if os.environ.get("VERCEL"):
+        # Leave room for multipart fields below Vercel's 4.5 MB payload cap.
+        MAX_UPLOAD_BYTES = min(MAX_UPLOAD_BYTES, 4 * 1024 * 1024)
+        MAX_UPLOAD_MB = MAX_UPLOAD_BYTES / (1024 * 1024)
+    # Multipart fields and headers need room beyond the file itself.
+    MAX_CONTENT_LENGTH = MAX_UPLOAD_BYTES + 1024 * 1024
+    if os.environ.get("VERCEL"):
+        MAX_CONTENT_LENGTH = min(MAX_CONTENT_LENGTH, 4_500_000)
 
     ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
     ADMIN_PAROL = os.environ.get("ADMIN_PAROL", "")
@@ -963,10 +977,10 @@ def royxat(elementlar, til):
     return [mahalliy(e, til) for e in elementlar]
 
 
-# Vercel so‘rov chegarasiga mos fayl hajmini ko‘rsatish.
+# Fayl hajmini serverdagi haqiqiy sozlama bilan bir xil ko'rsatish.
 for _matn in MATN.values():
     for _kalit in ("forma_fayl", "xato_fayl"):
-        _matn[_kalit] = _matn[_kalit].format(hajm=4 if os.environ.get("VERCEL") else 20)
+        _matn[_kalit] = _matn[_kalit].format(hajm=Config.MAX_UPLOAD_MB)
 
 # Additional submission and administration controls, in all supported languages.
 YANGI_MATN = {
@@ -1043,3 +1057,41 @@ for _til, _labels in {
     "tr": ("Kayıt ol", "Konferans kaydı", "Kurum / üniversite", "Katılım şekli", "Yüz yüze", "Çevrimiçi", "Kaydınız alındı. Bu e-posta ile tekrar kayıt olmanız gerekmez.", "Bilgilerimin konferansın düzenlenmesi amacıyla saklanmasını kabul ediyorum.", "Konferans kaydı kapalı.", "Ad, e-posta, kurum, katılım şekli ve onayı kontrol edin."),
 }.items():
     MATN[_til].update(dict(zip(("register", "registration_title", "organization", "attendance", "in_person", "online", "registration_success", "consent", "registration_closed", "registration_error"), _labels)))
+
+# Navigation, participation information and upload feedback.
+for _language, _content in {
+    'uz': {
+        'program': 'Dastur', 'program_pending': "Batafsil dastur hali e’lon qilinmagan. Sessiyalar vaqti, ma’ruzachilar va zallar tasdiqlangach shu sahifada beriladi.",
+        'online_info': "Onlayn qatnashish havolasi hozircha e’lon qilinmagan. Ulanish tartibini tashkiliy qo‘mitadan aniqlashtiring.",
+        'privacy_title': 'Maxfiylik va shaxsiy ma’lumotlar',
+        'privacy_details': "Ro‘yxatdan o‘tishda ism, email, tashkilot va qatnashish shakli; maqola yuborishda ism, email, sarlavha, yo‘nalish va fayl; aloqa formasida xabar ma’lumotlari saqlanadi. Bu ma’lumotlar konferensiyani tashkil etish va murojaatlarga javob berish uchun ishlatiladi. Qatnashchilar ro‘yxati va email manzillari ommaga ochilmaydi. Tasdiqlangan maqola, muallif ismi va yo‘nalishi ommaga ko‘rinadi. Holatni kuzatish havolasi maxfiydir.",
+        'privacy_request': "Ma’lumotlaringizni tuzatish yoki o‘chirish, saqlash muddati haqida ma’lumot olish uchun tashkiliy qo‘mitaga yozing. Sayt kirish sessiyasi va formalarni himoyalash uchun cookie ishlatadi.",
+        'skip_content': 'Asosiy mazmunga o‘tish', 'menu_label': 'Menyuni ochish', 'close_label': 'Xabarni yopish',
+        'file_large': 'Fayl ruxsat etilgan hajmdan katta. Kichikroq fayl tanlang.',
+        'upload_wait': 'Fayl yuborilmoqda. Natija chiqquncha sahifani yopmang.',
+        'upload_selected': 'Tanlangan fayl', 'upload_limit': 'Maksimal hajm',
+    },
+    'en': {
+        'program': 'Programme', 'program_pending': 'The detailed programme has not been announced yet. Session times, speakers and rooms will appear here once confirmed.',
+        'online_info': 'The online participation link has not been announced yet. Contact the organizing committee for joining instructions.',
+        'privacy_title': 'Privacy and personal data',
+        'privacy_details': 'Registration stores your name, email, organization and attendance format. Submissions store your name, email, title, research track and document. Contact forms store your message details. These details are used to organize the conference and answer enquiries. Participant lists and email addresses are not public. Approved papers, author names and research tracks are public. Submission tracking links are private.',
+        'privacy_request': 'Contact the organizing committee to request correction or deletion of your data or information about retention periods. The site uses cookies for sessions and form security.',
+        'skip_content': 'Skip to content', 'menu_label': 'Open menu', 'close_label': 'Close message',
+        'file_large': 'This file exceeds the size limit. Choose a smaller file.',
+        'upload_wait': 'Uploading your file. Keep this page open until the result appears.',
+        'upload_selected': 'Selected file', 'upload_limit': 'Maximum size',
+    },
+    'tr': {
+        'program': 'Program', 'program_pending': 'Ayrıntılı program henüz açıklanmadı. Oturum saatleri, konuşmacılar ve salonlar onaylandıktan sonra burada yayımlanacak.',
+        'online_info': 'Çevrimiçi katılım bağlantısı henüz açıklanmadı. Bağlantı bilgileri için düzenleme kuruluyla iletişime geçin.',
+        'privacy_title': 'Gizlilik ve kişisel veriler',
+        'privacy_details': 'Kayıtta ad, e-posta, kurum ve katılım şekli; bildiri başvurusunda ad, e-posta, başlık, bilimsel alan ve dosya; iletişim formunda mesaj bilgileri saklanır. Bu bilgiler konferansı düzenlemek ve soruları yanıtlamak için kullanılır. Katılımcı listesi ve e-posta adresleri herkese açık değildir. Onaylanan bildiriler, yazar adları ve bilimsel alanlar herkese açıktır. Başvuru takip bağlantıları özeldir.',
+        'privacy_request': 'Verilerinizin düzeltilmesi, silinmesi veya saklama süresi hakkında bilgi almak için düzenleme kuruluyla iletişime geçin. Site oturumlar ve form güvenliği için çerez kullanır.',
+        'skip_content': 'İçeriğe geç', 'menu_label': 'Menüyü aç', 'close_label': 'Mesajı kapat',
+        'file_large': 'Dosya boyut sınırını aşıyor. Daha küçük bir dosya seçin.',
+        'upload_wait': 'Dosyanız yükleniyor. Sonuç görünene kadar sayfayı kapatmayın.',
+        'upload_selected': 'Seçilen dosya', 'upload_limit': 'En büyük boyut',
+    },
+}.items():
+    MATN[_language].update(_content)

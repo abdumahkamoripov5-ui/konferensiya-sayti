@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block sarlavha %}{{ t.privacy_title }}{% endblock %}
+{% block kontent %}
+<section class="sahifa-bosh"><div class="konteyner"><h1>{{ t.privacy_title }}</h1></div></section>
+<section class="bolim"><div class="konteyner policy-content">
+  <p>{{ t.privacy_details }}</p><p>{{ t.privacy_request }}</p>
+  <p><a href="mailto:{{ aloqa_malumot.email }}">{{ aloqa_malumot.email }}</a></p>
+</div></section>
+{% endblock %}

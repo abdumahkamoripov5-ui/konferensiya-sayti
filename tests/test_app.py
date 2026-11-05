@@ -19,7 +19,7 @@ import config
 ROOT = tempfile.TemporaryDirectory(prefix='konf-tests-')
 config.Config.DATABASE = str(Path(ROOT.name) / 'empty.db')
 config.Config.DATABASE_URL = ''
-from app import app, csv_safe
+from app import app, csv_safe, email_togrimi
 import models
 from pypdf import PdfWriter
 from uploads import validate_document
@@ -48,6 +48,7 @@ class SiteTests(unittest.TestCase):
                           SMTP_HOST='', PUBLIC_URL='', SESSION_COOKIE_SECURE=False,
                           SUBMISSIONS_OPEN=True, REGISTRATION_OPEN=True, MAX_CONTENT_LENGTH=20 * 1024 * 1024,
                           WTF_CSRF_ENABLED=True)
+        app.config['MAX_UPLOAD_BYTES'] = config.Config.MAX_UPLOAD_BYTES
         self.client = app.test_client()
         self.deadline = patch.object(config, 'MUDDAT_ISO', '2099-11-15T23:59:59+05:00')
         self.deadline.start()
@@ -79,7 +80,7 @@ class SiteTests(unittest.TestCase):
     def test_public_pages_and_all_local_assets(self):
         urls = set()
         for prefix in ('', '/en', '/tr'):
-            for path in ('/', '/haqida', '/yonalishlar', '/kengash', '/talablar', '/aloqa', '/maqolalar'):
+            for path in ('/', '/haqida', '/yonalishlar', '/kengash', '/talablar', '/aloqa', '/maqolalar', '/royxatdan-otish', '/dastur', '/maxfiylik'):
                 response = self.client.get(prefix + path)
                 self.assertEqual(response.status_code, 200, prefix + path)
                 parser = LocalLinks()
@@ -90,6 +91,25 @@ class SiteTests(unittest.TestCase):
                 response = self.client.get(url)
                 self.assertLess(response.status_code, 400)
                 response.close()
+
+    def test_search_metadata_and_sitemap_exclude_private_pages(self):
+        from xml.etree import ElementTree
+        with patch.dict(app.config, PUBLIC_URL='https://conference.example'):
+            response = self.client.get('/sitemap.xml')
+            self.assertEqual(response.status_code, 200)
+            root = ElementTree.fromstring(response.data)
+            locations = [node.text for node in root.findall('{*}url/{*}loc')]
+            self.assertEqual(len(locations), 30)
+            self.assertEqual(len(set(locations)), 30)
+            for location in locations:
+                self.assertTrue(location.startswith('https://conference.example/'))
+                self.assertNotIn('/admin', location)
+                self.assertNotIn('maqola-holati', location)
+            page = self.client.get('/en/dastur?q=sample').get_data(as_text=True)
+            self.assertIn('rel="canonical" href="https://conference.example/en/dastur"', page)
+            self.assertIn('property="og:image"', page)
+            self.assertIn('Sitemap: https://conference.example/sitemap.xml', self.client.get('/robots.txt').get_data(as_text=True))
+            self.assertNotIn('property="og:url"', self.client.get('/admin/kirish').get_data(as_text=True))
 
     def test_csrf_rejects_missing_and_cross_session_tokens(self):
         self.assertEqual(self.client.post('/aloqa', data={}).status_code, 400)
@@ -120,6 +140,7 @@ class SiteTests(unittest.TestCase):
             self.assertNotIn('<script>alert(1)</script>', page)
             download = self.client.get('/maqola/1/yuklab-olish')
             self.assertEqual(download.status_code, 200 if status == 'tasdiqlangan' else 302)
+            self.assertIn('no-store', download.headers['Cache-Control'])
             download.close()
         with app.app_context():
             self.assertEqual(len(models.maqolalar_tasdiqlangan()), 0)
@@ -135,19 +156,37 @@ class SiteTests(unittest.TestCase):
             self.assertFalse(validate_document(content, ext))
 
     def test_docx_structure_and_bomb_limits(self):
-        def document(xml, other=None):
+        content_types = ('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                         '<Override PartName="/word/document.xml" '
+                         'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+                         '</Types>')
+        def document(xml, other=None, types=content_types):
             stream = io.BytesIO()
             with zipfile.ZipFile(stream, 'w', zipfile.ZIP_DEFLATED) as archive:
-                archive.writestr('[Content_Types].xml', '<Types/>')
+                archive.writestr('[Content_Types].xml', types)
                 archive.writestr('word/document.xml', xml)
                 if other:
                     archive.writestr(*other)
             return stream.getvalue()
         xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>'
         self.assertTrue(validate_document(document(xml), 'docx'))
+        self.assertFalse(validate_document(document(xml, types='<Types/>'), 'docx'))
+        self.assertFalse(validate_document(document(xml, types=content_types.replace(
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml',
+            'application/vnd.ms-word.document.macroEnabled.main+xml')), 'docx'))
+        self.assertFalse(validate_document(document(xml, ('word/VbaProject.bin', b'code')), 'docx'))
         self.assertFalse(validate_document(document('<fake/>'), 'docx'))
         self.assertFalse(validate_document(document(xml, ('word/vbaProject.bin', b'code')), 'docx'))
         self.assertFalse(validate_document(document(xml, ('bomb', b'0' * (51 * 1024 * 1024))), 'docx'))
+
+    def test_email_control_characters_rejected_before_storage(self):
+        for control in ('\x00', '\x01', '\x1f', '\x7f', '\r', '\n'):
+            with self.subTest(control=repr(control)):
+                self.assertFalse(email_togrimi('name' + control + '@example.com'))
+        response = self.upload(email='name\x00@example.com')
+        self.assertEqual(response.status_code, 422)
+        with app.app_context():
+            self.assertEqual(models.maqolalar_royxati(), [])
 
     def test_duplicate_upload_does_not_duplicate_or_leak_tracking(self):
         first = self.upload()
@@ -157,6 +196,26 @@ class SiteTests(unittest.TestCase):
         with app.app_context():
             self.assertEqual(len(models.maqolalar_royxati()), 1)
         self.assertEqual(len(list(Path(app.config['MAQOLA_PAPKA']).iterdir())), 1)
+
+    def test_upload_above_four_mb_and_exact_file_limit(self):
+        stream = io.BytesIO()
+        writer = PdfWriter()
+        writer.add_blank_page(width=72, height=72)
+        writer.add_metadata({'/Subject': 'a' * (5 * 1024 * 1024)})
+        writer.write(stream)
+        content = stream.getvalue()
+        app.config['MAX_UPLOAD_BYTES'] = len(content)
+        self.assertEqual(self.upload(fayl=(io.BytesIO(content), 'large.pdf')).status_code, 302)
+        self.login()
+        self.assertIn('large.pdf', self.client.get('/admin').get_data(as_text=True))
+        download = self.client.get('/admin/maqola/1/yuklab-olish')
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(download.data, content)
+        download.close()
+        app.config['MAX_UPLOAD_BYTES'] = len(content) - 1
+        self.assertEqual(self.upload(fayl=(io.BytesIO(content), 'large.pdf')).status_code, 413)
+        with app.app_context():
+            self.assertEqual(len(models.maqolalar_royxati()), 1)
 
     def test_deadline_and_manual_close(self):
         with patch.object(config, 'MUDDAT_ISO', '2000-01-01T00:00:00+05:00'):
@@ -209,7 +268,11 @@ class SiteTests(unittest.TestCase):
         token = self.token()
         app.config['MAX_CONTENT_LENGTH'] = 1024
         response = self.client.post('/maqola-yuborish', data={'csrf_token': token, 'fayl': (io.BytesIO(b'x' * 2048), 'large.pdf')})
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 413)
+        self.assertIn('chegaradan oshdi', response.get_data(as_text=True))
+        for path in ('/aloqa', '/en/royxatdan-otish', '/admin/kirish'):
+            response = self.client.post(path, data={'csrf_token': token, 'xabar': 'x' * 2048})
+            self.assertEqual(response.status_code, 413)
         for lang in ('', '/en', '/tr'):
             response = self.client.get(lang + '/taqvim.ics')
             self.assertEqual(response.status_code, 200)

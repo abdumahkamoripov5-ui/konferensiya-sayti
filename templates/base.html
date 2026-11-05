@@ -6,15 +6,25 @@
   <title>{% block sarlavha %}{{ t.nav_bosh }}{% endblock %} — {{ konf.qisqa_nom }}</title>
   {% if request.endpoint in ('admin_panel', 'admin_kirish', 'maqola_holati') %}<meta name="robots" content="noindex,nofollow">{% endif %}
   <meta name="description" content="{{ konf.tur }} — {{ konf.nom }}. {{ konf.sana }}, {{ konf.joy }}.">
+  {% if request.endpoint and not request.path.startswith('/admin') and request.endpoint != 'maqola_holati' and not request.path.startswith('/maqola/') and request.method == 'GET' and not kod %}
+  <link rel="canonical" href="{{ public_origin }}{{ request.path }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ self.sarlavha() | striptags }} — {{ konf.qisqa_nom }}">
+  <meta property="og:description" content="{{ konf.nom }}. {{ konf.sana }}, {{ konf.joy }}.">
+  <meta property="og:url" content="{{ public_origin }}{{ request.path }}">
+  <meta property="og:image" content="{{ public_origin }}{{ url_for('static', filename='img/qahramon/bitigtosh.jpg') }}">
+  <meta property="og:image:alt" content="{{ konf.qisqa_nom }}">
+  <meta name="twitter:card" content="summary_large_image">
+  {% endif %}
   {% for kod, til_url in til_havola.items() %}
-  <link rel="alternate" hreflang="{{ tillar[kod].html }}" href="{{ til_url }}">
+  <link rel="alternate" hreflang="{{ tillar[kod].html }}" href="{{ public_origin }}{{ til_url }}">
   {% endfor %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='img/nishon.svg') }}">
 </head>
 <body class="{{ 'bosh-sahifa' if faol == 'bosh' }}" data-yuborilmoqda="{{ t.yuborilmoqda }}">
 
-<a class="otkazish" href="#kontent">{{ t.nav_bosh }}</a>
+<a class="otkazish" href="#kontent">{{ t.skip_content }}</a>
 
 <header class="header" id="header">
   <div class="konteyner header__ich">
@@ -26,11 +36,13 @@
       </span>
     </a>
 
-    <button class="burger" id="burger" aria-label="Menu" aria-controls="nav" aria-expanded="false">
+    <button class="burger" id="burger" aria-label="{{ t.menu_label }}" aria-controls="nav" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
 
     <nav class="nav" id="nav">
+      <a href="{{ url_for('dastur') }}" class="{{ 'faol' if faol == 'dastur' }}">{{ t.program }}</a>
+      <a href="{{ url_for('royxatdan_otish') }}">{{ t.register }}</a>
       <a href="{{ url_for('bosh_sahifa') }}"  class="{{ 'faol' if faol == 'bosh' }}">{{ t.nav_bosh }}</a>
       <a href="{{ url_for('haqida') }}"       class="{{ 'faol' if faol == 'haqida' }}">{{ t.nav_haqida }}</a>
       <a href="{{ url_for('yonalishlar') }}"  class="{{ 'faol' if faol == 'yonalishlar' }}">{{ t.nav_yonalishlar }}</a>
@@ -60,7 +72,7 @@
             {%- if turi == 'muvaffaqiyat' -%}✓{%- elif turi == 'xato' -%}✕{%- else -%}!{%- endif -%}
           </span>
           <span>{{ matn }}</span>
-          <button class="flash__yopish" aria-label="×">&times;</button>
+          <button class="flash__yopish" aria-label="{{ t.close_label }}">&times;</button>
         </div>
       {% endfor %}
     </div>
@@ -84,6 +96,8 @@
     <div>
       <h4 class="futer__sarlavha">{{ t.futer_bolimlar }}</h4>
       <ul class="futer__royxat">
+        <li><a href="{{ url_for('dastur') }}">{{ t.program }}</a></li>
+        <li><a href="{{ url_for('maxfiylik') }}">{{ t.privacy_title }}</a></li>
         <li><a href="{{ url_for('haqida') }}">{{ t.nav_haqida }}</a></li>
         <li><a href="{{ url_for('yonalishlar') }}">{{ t.nav_yonalishlar }}</a></li>
         <li><a href="{{ url_for('kengash') }}">{{ t.nav_kengash }}</a></li>

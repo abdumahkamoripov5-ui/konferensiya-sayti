@@ -6,3 +6,4 @@ data/*.db
 data/maqolalar/
 .env
 data/.session-key
+data/browser-check/

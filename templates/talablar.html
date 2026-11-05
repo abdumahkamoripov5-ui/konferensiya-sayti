@@ -68,10 +68,15 @@
         </div>
         <div class="maydon-guruh">
           <label for="maqola-fayl">{{ t.forma_fayl }}</label>
-          <input type="file" id="maqola-fayl" name="fayl" accept=".pdf,.doc,.docx" required>
+          <input type="file" id="maqola-fayl" name="fayl" accept=".pdf,.doc,.docx" required
+                 data-max-bytes="{{ max_upload_bytes }}" data-size-error="{{ t.file_large }}"
+                 data-selected="{{ t.upload_selected }}" aria-describedby="file-feedback">
+          <p id="file-feedback" class="kichik" role="status" aria-live="polite">{{ t.upload_limit }}: {{ (max_upload_bytes / 1048576) | round(1) }} MB</p>
         </div>
+        <p class="upload-status kichik" role="status" hidden>{{ t.upload_wait }}</p>
         <button type="submit" class="tugma tugma--asosiy tugma--keng">{{ t.forma_maqola_yuborish }}</button>
         <p class="kichik">{{ t.privacy }}</p>
+        <p class="kichik"><a href="{{ url_for('maxfiylik') }}">{{ t.privacy_title }}</a></p>
       </form>
       {% else %}<p class="eslatma" role="status">{{ t.closed }}</p>{% endif %}
 

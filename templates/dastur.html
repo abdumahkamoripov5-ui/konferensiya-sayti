@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block sarlavha %}{{ t.program }}{% endblock %}
+{% block kontent %}
+<section class="sahifa-bosh"><div class="konteyner">
+  <h1>{{ t.program }}</h1><p class="sahifa-bosh__matn">{{ konf.sana }} · {{ konf.joy }}</p>
+</div></section>
+<section class="bolim"><div class="konteyner ikki-ustun">
+  <div><p class="eslatma">{{ t.program_pending }}</p>
+    <h2>{{ t.online }}</h2><p>{{ t.online_info }}</p>
+    <a class="tugma tugma--chegara" href="{{ url_for('aloqa') }}">{{ t.nav_aloqa }}</a>
+  </div>
+  <aside class="yonpanel"><h2>{{ t.malumot_sarlavha }}</h2>
+    <p>{{ konf.manzil }}</p><p>{{ konf.format }}</p>
+    <p><a href="{{ url_for('taqvim') }}">{{ t.calendar }}</a></p>
+    <a class="tugma tugma--asosiy" href="{{ url_for('royxatdan_otish') }}">{{ t.register }}</a>
+  </aside>
+</div></section>
+{% endblock %}

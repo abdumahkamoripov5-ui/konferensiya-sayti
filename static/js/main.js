@@ -101,6 +101,21 @@
   // --- Formani ikki marta yuborishdan saqlash -----------------------------
   var yuborilmoqda = document.body.dataset.yuborilmoqda || "...";
 
+  document.querySelectorAll('input[type="file"][data-max-bytes]').forEach(function (input) {
+    var feedback = document.getElementById(input.getAttribute("aria-describedby"));
+    input.addEventListener("change", function () {
+      var file = input.files[0];
+      var tooLarge = file && file.size > Number(input.dataset.maxBytes);
+      input.setCustomValidity(tooLarge ? input.dataset.sizeError : "");
+      input.setAttribute("aria-invalid", tooLarge ? "true" : "false");
+      if (feedback) {
+        feedback.textContent = tooLarge ? input.dataset.sizeError : file ?
+          input.dataset.selected + ": " + file.name + " (" + (file.size / 1048576).toFixed(2) + " MB)" : "";
+      }
+      if (tooLarge) input.reportValidity();
+    });
+  });
+
   document.querySelectorAll("form").forEach(function (forma) {
     forma.addEventListener("submit", function (event) {
       if (event.defaultPrevented) return;
@@ -112,6 +127,11 @@
         if (event.defaultPrevented) return;
         tugma.dataset.oldText = tugma.textContent;
         tugma.disabled = true;
+        var status = forma.querySelector(".upload-status");
+        if (status) {
+          status.hidden = false;
+          forma.setAttribute("aria-busy", "true");
+        }
         if (!tugma.classList.contains("mayda-tugma")) {
           tugma.textContent = yuborilmoqda;
         }
@@ -121,6 +141,10 @@
 
   // Back/forward cache restores disabled controls as well as the document.
   window.addEventListener("pageshow", function () {
+    document.querySelectorAll(".upload-status").forEach(function (status) {
+      status.hidden = true;
+      status.closest("form").removeAttribute("aria-busy");
+    });
     document.querySelectorAll("button[data-old-text]").forEach(function (button) {
       button.disabled = false;
       button.textContent = button.dataset.oldText;
@@ -138,7 +162,7 @@
       if (!nishon) return;
 
       e.preventDefault();
-      nishon.scrollIntoView({ behavior: "smooth", block: "start" });
+      nishon.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     });
   });
 })();

@@ -588,6 +588,8 @@ img { max-width: 100%; display: block; }
 }
 .futer__sarlavha { color: #fff; font-size: .95rem; margin-bottom: .85rem; }
 .futer__matn { font-size: .88rem; }
+.futer__panjara > div > a, .futer__panjara > div > p > a { color: rgba(255,255,255,.85); }
+.futer__panjara > div > a:hover, .futer__panjara > div > p > a:hover { color: var(--urgu-och); }
 .futer__matn--xira { color: rgba(255,255,255,.5); margin-top: .4rem; }
 .futer__royxat { list-style: none; display: grid; gap: .45rem; }
 .futer__royxat a { color: rgba(255,255,255,.75); font-size: .88rem; }
@@ -731,3 +733,11 @@ img { max-width: 100%; display: block; }
 }
 .consent { display: flex; align-items: flex-start; gap: .6rem; }
 .consent input { margin-top: .3rem; flex-shrink: 0; }
+.policy-content { max-width: 850px; overflow-wrap: anywhere; }
+.policy-content p + p { margin-top: 1.5rem; }
+.upload-status { padding: .8rem; background: var(--fon-kulrang); border-radius: var(--radius-kichik); }
+.qahramon__tugmalar { flex-wrap: wrap; }
+@media (min-width: 1101px) and (max-width: 1450px) {
+  .header__ich { height: auto; min-height: 70px; padding-block: .6rem; flex-wrap: wrap; justify-content: center; gap: .75rem; }
+  .nav { flex-wrap: wrap; justify-content: center; }
+}
